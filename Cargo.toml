@@ -1,0 +1,9 @@
+[workspace]
+resolver = "2"
+members = ["libabbs", "libpfu", "pakfixer"]
+
+[workspace.package]
+authors = ["xtex <xtex@aosc.io>"]
+license = "GPL-3.0-or-later"
+homepage = "https://github.com/xtexChooser/pfu"
+repository = "https://github.com/xtexChooser/pfu.git"

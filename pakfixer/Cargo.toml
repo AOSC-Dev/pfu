@@ -1,0 +1,11 @@
+[package]
+name = "pakfixer"
+version = "0.1.0"
+edition = "2024"
+description = "Command-line interface for libpfu"
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
+[dependencies]

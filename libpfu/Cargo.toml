@@ -1,0 +1,15 @@
+[package]
+name = "libpfu"
+version = "0.1.0"
+edition = "2024"
+description = "PackFixerUpper: bring up AOSC OS packages magically"
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
+[dependencies]
+async-trait = "0.1.83"
+opendal = { version = "0.50.2", default-features = false, features = ["services-fs"] }
+reqwest = { version = "0.12.9", default-features = false }
+thiserror = "2.0.9"

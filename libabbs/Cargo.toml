@@ -1,0 +1,17 @@
+[package]
+name = "libabbs"
+version = "0.1.0"
+edition = "2024"
+description = "Library for aosc-os-abbs maintenance"
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
+[dependencies]
+thiserror = "2.0.9"
+yash-syntax = { version = "0.13.0", optional = true }
+
+[features]
+default = ["apml"]
+apml = ["dep:yash-syntax"]
