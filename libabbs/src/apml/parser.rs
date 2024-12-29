@@ -7,19 +7,19 @@ use nom::{
     branch::alt,
     bytes::complete::{tag, take_till, take_until1, take_while, take_while1},
     character::complete::{anychar, char, newline},
-    combinator::{map, map_res, opt, value},
+    combinator::{map, opt, value},
     multi::{many0, many1},
     sequence::{delimited, pair, preceded, separated_pair},
 };
 
 use super::tree::*;
 
-pub fn apml_ast(i: &str) -> IResult<&str, ApmlAst> {
-    map(many0(token), |tokens| ApmlAst(tokens))(i)
+pub fn apml_ast(i: &str) -> IResult<&str, ApmlParseTree> {
+    map(many0(token), |tokens| ApmlParseTree(tokens))(i)
 }
 
 #[inline]
-pub fn token(i: &str) -> IResult<&str, Token> {
+fn token(i: &str) -> IResult<&str, Token> {
     alt((
         // spacy
         map(alt((char(' '), char('\t'))), Token::Spacy),
@@ -33,14 +33,14 @@ pub fn token(i: &str) -> IResult<&str, Token> {
 }
 
 #[inline]
-pub fn comment_token(i: &str) -> IResult<&str, Token> {
+fn comment_token(i: &str) -> IResult<&str, Token> {
     map(preceded(char('#'), take_till(|ch| ch == '\n')), |comment| {
         Token::Comment(Cow::Borrowed(comment))
     })(i)
 }
 
 #[inline]
-pub fn variable_def(i: &str) -> IResult<&str, VariableDefinition> {
+fn variable_def(i: &str) -> IResult<&str, VariableDefinition> {
     map(
         separated_pair(variable_name, char('='), variable_value),
         |(name, value)| VariableDefinition {
@@ -51,28 +51,34 @@ pub fn variable_def(i: &str) -> IResult<&str, VariableDefinition> {
 }
 
 #[inline]
-pub fn variable_name(i: &str) -> IResult<&str, &str> {
+fn variable_name(i: &str) -> IResult<&str, &str> {
     take_while1(|ch: char| ch.is_alphanumeric() || ch == '_')(i)
 }
 
 #[inline]
-pub fn variable_value(i: &str) -> IResult<&str, VariableValue> {
+fn variable_value(i: &str) -> IResult<&str, VariableValue> {
     alt((
         // string
         map(
-            |s| text(s, " #"),
+            |s| text(s, &|ch| ch != ' ' && ch != '#'),
             |text| VariableValue::String(Rc::new(text)),
         ),
     ))(i)
 }
 
 #[inline]
-pub fn text<'a>(i: &'a str, exclude: &'static str) -> IResult<&'a str, Text<'a>> {
-    map(many0(|s| text_unit(s, exclude)), Text)(i)
+fn text<'a, Cond>(i: &'a str, cond: &Cond) -> IResult<&'a str, Text<'a>>
+where
+    Cond: Fn(char) -> bool,
+{
+    map(many0(|s| text_unit(s, &cond)), Text)(i)
 }
 
 #[inline]
-pub fn text_unit<'a>(i: &'a str, exclude: &'static str) -> IResult<&'a str, TextUnit<'a>> {
+fn text_unit<'a, Cond>(i: &'a str, cond: &Cond) -> IResult<&'a str, TextUnit<'a>>
+where
+    Cond: Fn(char) -> bool,
+{
     alt((
         // single quoted
         delimited(
@@ -85,16 +91,22 @@ pub fn text_unit<'a>(i: &'a str, exclude: &'static str) -> IResult<&'a str, Text
         // double quoted
         delimited(
             char('"'),
-            map(many0(|s| word(s, "")), TextUnit::DuobleQuote),
+            map(many0(|s| word(s, &|_| true)), TextUnit::DuobleQuote),
             char('"'),
         ),
         // unquoted
-        map(many1(|s| word(s, exclude)), TextUnit::Unquoted),
+        map(
+            many1(|s| word(s, &|ch| cond(ch) && ch != '\'' && ch != '\n')),
+            TextUnit::Unquoted,
+        ),
     ))(i)
 }
 
 #[inline]
-pub fn word<'a>(i: &'a str, exclude: &'static str) -> IResult<&'a str, Word<'a>> {
+fn word<'a, Cond>(i: &'a str, cond: &Cond) -> IResult<&'a str, Word<'a>>
+where
+    Cond: Fn(char) -> bool,
+{
     alt((
         // braced variable
         map(delimited(tag("${"), braced_expansion, char('}')), |exp| {
@@ -105,29 +117,31 @@ pub fn word<'a>(i: &'a str, exclude: &'static str) -> IResult<&'a str, Word<'a>>
             Word::UnbracedVariable(Cow::Borrowed(name))
         }),
         // literal
-        map(many1(|s| literal_part(s, exclude)), |parts| {
+        map(many1(|s| literal_part(s, cond)), |parts| {
             Word::Literal(parts)
         }),
     ))(i)
 }
 
 #[inline]
-pub fn literal_part<'a>(i: &'a str, exclude: &'static str) -> IResult<&'a str, LiteralPart<'a>> {
+fn literal_part<'a, Cond>(i: &'a str, cond: &Cond) -> IResult<&'a str, LiteralPart<'a>>
+where
+    Cond: Fn(char) -> bool,
+{
     alt((
         // line continuation
         value(LiteralPart::LineContinuation, tag("\\\n")),
         // escaped
         map(preceded(char('\\'), anychar), LiteralPart::Escaped),
         // literal
-        map(
-            take_while1(|ch| !"$'\"\\\n".contains(ch) && !exclude.contains(ch)),
-            |s| LiteralPart::String(Cow::Borrowed(s)),
-        ),
+        map(take_while1(|ch| !"$\"\\".contains(ch) && cond(ch)), |s| {
+            LiteralPart::String(Cow::Borrowed(s))
+        }),
     ))(i)
 }
 
 #[inline]
-pub fn braced_expansion(i: &str) -> IResult<&str, BracedExpansion> {
+fn braced_expansion(i: &str) -> IResult<&str, BracedExpansion> {
     alt((
         // length of
         map(preceded(char('#'), variable_name), |name| BracedExpansion {
@@ -146,7 +160,7 @@ pub fn braced_expansion(i: &str) -> IResult<&str, BracedExpansion> {
 }
 
 #[inline]
-pub fn expansion_modifier(i: &str) -> IResult<&str, ExpansionModifier> {
+fn expansion_modifier(i: &str) -> IResult<&str, ExpansionModifier> {
     #[inline]
     fn expansion_glob(i: &str) -> IResult<&str, Rc<GlobPattern>> {
         map(|s| glob_pattern(s, "}"), Rc::new)(i)
@@ -157,10 +171,9 @@ pub fn expansion_modifier(i: &str) -> IResult<&str, ExpansionModifier> {
     }
     #[inline]
     fn expansion_text(i: &str) -> IResult<&str, Rc<Text>> {
-        map(|s| text(s, "}"), Rc::new)(i)
+        map(|s| text(s, &|ch| ch != '}'), Rc::new)(i)
     }
     alt((
-        substring_expansion_modifier,
         map(
             preceded(tag("##"), expansion_glob),
             ExpansionModifier::StripLongestPrefix,
@@ -180,28 +193,40 @@ pub fn expansion_modifier(i: &str) -> IResult<&str, ExpansionModifier> {
         map(
             preceded(
                 tag("//"),
-                separated_pair(expansion_glob_replace, char('/'), expansion_text),
+                pair(
+                    expansion_glob_replace,
+                    opt(preceded(char('/'), expansion_text)),
+                ),
             ),
             |(pattern, string)| ExpansionModifier::ReplaceAll { pattern, string },
         ),
         map(
             preceded(
                 tag("/#"),
-                separated_pair(expansion_glob_replace, char('/'), expansion_text),
+                pair(
+                    expansion_glob_replace,
+                    opt(preceded(char('/'), expansion_text)),
+                ),
             ),
             |(pattern, string)| ExpansionModifier::ReplacePrefix { pattern, string },
         ),
         map(
             preceded(
                 tag("/%"),
-                separated_pair(expansion_glob_replace, char('/'), expansion_text),
+                pair(
+                    expansion_glob_replace,
+                    opt(preceded(char('/'), expansion_text)),
+                ),
             ),
             |(pattern, string)| ExpansionModifier::ReplaceSuffix { pattern, string },
         ),
         map(
             preceded(
                 char('/'),
-                separated_pair(expansion_glob_replace, char('/'), expansion_text),
+                pair(
+                    expansion_glob_replace,
+                    opt(preceded(char('/'), expansion_text)),
+                ),
             ),
             |(pattern, string)| ExpansionModifier::ReplaceOnce { pattern, string },
         ),
@@ -237,39 +262,37 @@ pub fn expansion_modifier(i: &str) -> IResult<&str, ExpansionModifier> {
             preceded(tag(":+"), expansion_text),
             ExpansionModifier::WhenSet,
         ),
+        substring_expansion_modifier,
     ))(i)
 }
 
 #[inline]
-pub fn substring_expansion_modifier(i: &str) -> IResult<&str, ExpansionModifier> {
+fn substring_expansion_modifier(i: &str) -> IResult<&str, ExpansionModifier> {
+    #[inline]
+    fn number(i: &str) -> IResult<&str, Cow<'_, str>> {
+        map(
+            take_while1(|ch: char| ch.is_ascii_digit() || " \n-\t".contains(ch)),
+            Cow::Borrowed,
+        )(i)
+    }
     preceded(
         char(':'),
         map(
-            pair(
-                map_res(take_while1(|ch: char| ch.is_digit(10)), |num| {
-                    usize::from_str_radix(num, 10)
-                }),
-                opt(preceded(
-                    char(':'),
-                    map_res(take_while1(|ch: char| ch.is_digit(10)), |num| {
-                        usize::from_str_radix(num, 10)
-                    }),
-                )),
-            ),
+            pair(number, opt(preceded(char(':'), number))),
             |(offset, length)| ExpansionModifier::Substring { offset, length },
         ),
     )(i)
 }
 
 #[inline]
-pub fn glob_pattern<'a>(i: &'a str, exclude: &'static str) -> IResult<&'a str, GlobPattern<'a>> {
+fn glob_pattern<'a>(i: &'a str, exclude: &'static str) -> IResult<&'a str, GlobPattern<'a>> {
     map(many1(|s| glob_part(s, exclude)), |tokens| {
         GlobPattern(tokens)
     })(i)
 }
 
 #[inline]
-pub fn glob_part<'a>(i: &'a str, exclude: &'static str) -> IResult<&'a str, GlobPart<'a>> {
+fn glob_part<'a>(i: &'a str, exclude: &'static str) -> IResult<&'a str, GlobPart<'a>> {
     alt((
         // escaped
         map(preceded(char('\\'), anychar), GlobPart::Escaped),
@@ -297,25 +320,30 @@ mod test {
     fn test_ast() {
         let src = r##"# Test APML
 
-a=b # Inline comment
+a=b'c' # Inline comment
 K=a"${#a} $ab b\ #l \
-c ${1:1}${1:1:1}${1##a}${1#a.*[:alpha:]b?\?}${1%%1}${1%1}\
+安安本来是只兔子，但有一天早上醒来发现自己变成了长着兔耳和兔尾巴的人类
+c ${1:1}${1:1: -1}${1##a}${1#a.*[:alpha:]b?\?}${1%%1}${1%1}\
 ${1/a/a}${1//a?a/$a}${1/#a/b}${1/%a/b}${1^*}${1^^*}${1,*}\
-${1,,*}${1:?err}${1:-unset}${1:+set}"
+${1,,*}${1:?err}${1:-unset}${1:+set}${1/a}${1//a}${1/#a}\
+${1/%a}"
 "##;
         assert_eq!(
             apml_ast(src).unwrap(),
             (
                 "",
-                ApmlAst(vec![
+                ApmlParseTree(vec![
                     Token::Comment(Cow::Borrowed(" Test APML")),
                     Token::Newline,
                     Token::Newline,
                     Token::Variable(VariableDefinition {
                         name: Cow::Borrowed("a"),
-                        value: VariableValue::String(Rc::new(Text(vec![TextUnit::Unquoted(
-                            vec![Word::Literal(vec![LiteralPart::String(Cow::Borrowed("b"))])]
-                        )])))
+                        value: VariableValue::String(Rc::new(Text(vec![
+                            TextUnit::Unquoted(vec![Word::Literal(vec![LiteralPart::String(
+                                Cow::Borrowed("b")
+                            )])]),
+                            TextUnit::SingleQuote(Cow::Borrowed("c"))
+                        ])))
                     }),
                     Token::Spacy(' '),
                     Token::Comment(Cow::Borrowed(" Inline comment")),
@@ -338,20 +366,22 @@ ${1,,*}${1:?err}${1:-unset}${1:+set}"
                                     LiteralPart::Escaped(' '),
                                     LiteralPart::String(Cow::Borrowed("#l ")),
                                     LiteralPart::LineContinuation,
-                                    LiteralPart::String(Cow::Borrowed("c ")),
+                                    LiteralPart::String(Cow::Borrowed(
+                                        "安安本来是只兔子，但有一天早上醒来发现自己变成了长着兔耳和兔尾巴的人类\nc "
+                                    )),
                                 ]),
                                 Word::BracedVariable(BracedExpansion {
                                     name: Cow::Borrowed("1"),
                                     modifier: Some(ExpansionModifier::Substring {
-                                        offset: 1,
+                                        offset: Cow::Borrowed("1"),
                                         length: None
                                     })
                                 }),
                                 Word::BracedVariable(BracedExpansion {
                                     name: Cow::Borrowed("1"),
                                     modifier: Some(ExpansionModifier::Substring {
-                                        offset: 1,
-                                        length: Some(1)
+                                        offset: Cow::Borrowed("1"),
+                                        length: Some(Cow::Borrowed(" -1"))
                                     })
                                 }),
                                 Word::BracedVariable(BracedExpansion {
@@ -394,11 +424,11 @@ ${1,,*}${1:?err}${1:-unset}${1:+set}"
                                         pattern: Rc::new(GlobPattern(vec![GlobPart::String(
                                             Cow::Borrowed("a")
                                         )])),
-                                        string: Rc::new(Text(vec![TextUnit::Unquoted(vec![
-                                            Word::Literal(vec![LiteralPart::String(
+                                        string: Some(Rc::new(Text(vec![TextUnit::Unquoted(
+                                            vec![Word::Literal(vec![LiteralPart::String(
                                                 Cow::Borrowed("a")
-                                            )])
-                                        ])]))
+                                            )])]
+                                        )])))
                                     })
                                 }),
                                 Word::BracedVariable(BracedExpansion {
@@ -409,9 +439,9 @@ ${1,,*}${1:?err}${1:-unset}${1:+set}"
                                             GlobPart::AnyChar,
                                             GlobPart::String(Cow::Borrowed("a"))
                                         ])),
-                                        string: Rc::new(Text(vec![TextUnit::Unquoted(vec![
-                                            Word::UnbracedVariable(Cow::Borrowed("a"))
-                                        ])]))
+                                        string: Some(Rc::new(Text(vec![TextUnit::Unquoted(
+                                            vec![Word::UnbracedVariable(Cow::Borrowed("a"))]
+                                        )])))
                                     })
                                 }),
                                 Word::BracedVariable(BracedExpansion {
@@ -420,11 +450,11 @@ ${1,,*}${1:?err}${1:-unset}${1:+set}"
                                         pattern: Rc::new(GlobPattern(vec![GlobPart::String(
                                             Cow::Borrowed("a")
                                         )])),
-                                        string: Rc::new(Text(vec![TextUnit::Unquoted(vec![
-                                            Word::Literal(vec![LiteralPart::String(
+                                        string: Some(Rc::new(Text(vec![TextUnit::Unquoted(
+                                            vec![Word::Literal(vec![LiteralPart::String(
                                                 Cow::Borrowed("b")
-                                            )])
-                                        ])]))
+                                            )])]
+                                        )])))
                                     })
                                 }),
                                 Word::BracedVariable(BracedExpansion {
@@ -433,11 +463,11 @@ ${1,,*}${1:?err}${1:-unset}${1:+set}"
                                         pattern: Rc::new(GlobPattern(vec![GlobPart::String(
                                             Cow::Borrowed("a")
                                         )])),
-                                        string: Rc::new(Text(vec![TextUnit::Unquoted(vec![
-                                            Word::Literal(vec![LiteralPart::String(
+                                        string: Some(Rc::new(Text(vec![TextUnit::Unquoted(
+                                            vec![Word::Literal(vec![LiteralPart::String(
                                                 Cow::Borrowed("b")
-                                            )])
-                                        ])]))
+                                            )])]
+                                        )])))
                                     })
                                 }),
                                 Word::BracedVariable(BracedExpansion {
@@ -488,7 +518,44 @@ ${1,,*}${1:?err}${1:-unset}${1:+set}"
                                             LiteralPart::String(Cow::Borrowed("set"))
                                         ])])]
                                     ))))
-                                })
+                                }),
+                                Word::BracedVariable(BracedExpansion {
+                                    name: Cow::Borrowed("1"),
+                                    modifier: Some(ExpansionModifier::ReplaceOnce {
+                                        pattern: Rc::new(GlobPattern(vec![GlobPart::String(
+                                            Cow::Borrowed("a")
+                                        )])),
+                                        string: None
+                                    })
+                                }),
+                                Word::BracedVariable(BracedExpansion {
+                                    name: Cow::Borrowed("1"),
+                                    modifier: Some(ExpansionModifier::ReplaceAll {
+                                        pattern: Rc::new(GlobPattern(vec![GlobPart::String(
+                                            Cow::Borrowed("a")
+                                        )])),
+                                        string: None
+                                    })
+                                }),
+                                Word::BracedVariable(BracedExpansion {
+                                    name: Cow::Borrowed("1"),
+                                    modifier: Some(ExpansionModifier::ReplacePrefix {
+                                        pattern: Rc::new(GlobPattern(vec![GlobPart::String(
+                                            Cow::Borrowed("a")
+                                        )])),
+                                        string: None
+                                    })
+                                }),
+                                Word::Literal(vec![LiteralPart::LineContinuation]),
+                                Word::BracedVariable(BracedExpansion {
+                                    name: Cow::Borrowed("1"),
+                                    modifier: Some(ExpansionModifier::ReplaceSuffix {
+                                        pattern: Rc::new(GlobPattern(vec![GlobPart::String(
+                                            Cow::Borrowed("a")
+                                        )])),
+                                        string: None
+                                    })
+                                }),
                             ])
                         ])))
                     }),
@@ -612,9 +679,11 @@ MESON_AFTER__AMD64=" \
 
     #[test]
     fn test_text() {
-        assert_eq!(text("", " #").unwrap(), ("", Text(vec![])));
+        assert_eq!(text("", &|_| true).unwrap(), ("", Text(vec![])));
         assert_eq!(
-            text("asd\\f\\\n134$a'test'\"a$a${a}  \" a", " #").unwrap(),
+            text("asd\\f\\\n134$a'test'\"a$a${a}  \" a", &|ch| ch != ' '
+                && ch != '#')
+            .unwrap(),
             (
                 " a",
                 Text(vec![
@@ -641,7 +710,7 @@ MESON_AFTER__AMD64=" \
             )
         );
         assert_eq!(
-            text("asd\\f\n134$a'test'\"a$a${a}  \" a", " ").unwrap(),
+            text("asd\\f\n134$a'test'\"a$a${a}  \" a", &|ch| ch != ' ').unwrap(),
             (
                 "\n134$a'test'\"a$a${a}  \" a",
                 Text(vec![TextUnit::Unquoted(vec![Word::Literal(vec![
@@ -655,7 +724,7 @@ MESON_AFTER__AMD64=" \
     #[test]
     fn test_text_unit() {
         assert_eq!(
-            text_unit("asdf134 a", " ").unwrap(),
+            text_unit("asdf134 a", &|ch| ch != ' ').unwrap(),
             (
                 " a",
                 TextUnit::Unquoted(vec![Word::Literal(vec![LiteralPart::String(
@@ -664,13 +733,13 @@ MESON_AFTER__AMD64=" \
             )
         );
         assert_eq!(
-            text_unit("'123 a'", " ").unwrap(),
+            text_unit("'123 a'", &|ch| ch != ' ').unwrap(),
             ("", TextUnit::SingleQuote(Cow::Borrowed("123 a")))
         );
         assert_eq!(
-            text_unit("1$a${#b} a$a", " ").unwrap(),
+            text_unit("1$a${#b}' a$a", &|ch| ch != ' ').unwrap(),
             (
-                " a$a",
+                "' a$a",
                 TextUnit::Unquoted(vec![
                     Word::Literal(vec![LiteralPart::String(Cow::Borrowed("1"))]),
                     Word::UnbracedVariable(Cow::Borrowed("a")),
@@ -682,7 +751,7 @@ MESON_AFTER__AMD64=" \
             )
         );
         assert_eq!(
-            text_unit("\"1\\\na$a${#b}\" a", " ").unwrap(),
+            text_unit("\"1\\\na$a${#b}安同'\" a", &|ch| ch != ' ').unwrap(),
             (
                 " a",
                 TextUnit::DuobleQuote(vec![
@@ -696,30 +765,31 @@ MESON_AFTER__AMD64=" \
                         name: Cow::Borrowed("b"),
                         modifier: Some(ExpansionModifier::Length),
                     }),
+                    Word::Literal(vec![LiteralPart::String(Cow::Borrowed("安同'"))]),
                 ])
             )
         );
-        text_unit("", " ").unwrap_err();
+        text_unit("", &|ch| ch != ' ').unwrap_err();
     }
 
     #[test]
     fn test_word() {
         assert_eq!(
-            word("asdf134 a", " #").unwrap(),
+            word("asdf134 a", &|ch| ch != ' ').unwrap(),
             (
                 " a",
                 Word::Literal(vec![LiteralPart::String(Cow::Borrowed("asdf134"))])
             )
         );
         assert_eq!(
-            word("asdf134 a", "").unwrap(),
+            word("asdf134 a", &|_| true).unwrap(),
             (
                 "",
                 Word::Literal(vec![LiteralPart::String(Cow::Borrowed("asdf134 a"))])
             )
         );
         assert_eq!(
-            word("asdf\\134\\\n a", "").unwrap(),
+            word("asdf\\134\\\n a", &|_| true).unwrap(),
             (
                 "",
                 Word::Literal(vec![
@@ -732,11 +802,11 @@ MESON_AFTER__AMD64=" \
             )
         );
         assert_eq!(
-            word("$123 a", "").unwrap(),
+            word("$123 a", &|ch| ch != ' ').unwrap(),
             (" a", Word::UnbracedVariable(Cow::Borrowed("123")))
         );
         assert_eq!(
-            word("${abc} a", "").unwrap(),
+            word("${abc} a", &|ch| ch != ' ').unwrap(),
             (
                 " a",
                 Word::BracedVariable(BracedExpansion {
@@ -746,7 +816,7 @@ MESON_AFTER__AMD64=" \
             )
         );
         assert_eq!(
-            word("${#abc} a", "").unwrap(),
+            word("${#abc} a", &|ch| ch != ' ').unwrap(),
             (
                 " a",
                 Word::BracedVariable(BracedExpansion {
@@ -755,23 +825,23 @@ MESON_AFTER__AMD64=" \
                 })
             )
         );
-        word("${#abc:1} a", "").unwrap_err();
-        word("", "").unwrap_err();
+        word("${#abc:1} a", &|ch| ch != ' ').unwrap_err();
+        word("", &|ch| ch != ' ').unwrap_err();
         assert_eq!(
-            word("${abc:1:2} a", "").unwrap(),
+            word("${abc:1:2} a", &|ch| ch != ' ').unwrap(),
             (
                 " a",
                 Word::BracedVariable(BracedExpansion {
                     name: Cow::Borrowed("abc"),
                     modifier: Some(ExpansionModifier::Substring {
-                        offset: 1,
-                        length: Some(2)
+                        offset: Cow::Borrowed("1"),
+                        length: Some(Cow::Borrowed("2"))
                     })
                 })
             )
         );
         assert_eq!(
-            word("${abc#test?} a", "").unwrap(),
+            word("${abc#test?} a", &|ch| ch != ' ').unwrap(),
             (
                 " a",
                 Word::BracedVariable(BracedExpansion {
@@ -790,20 +860,27 @@ MESON_AFTER__AMD64=" \
     #[test]
     fn test_literal_part() {
         assert_eq!(
-            literal_part("abc a", " #").unwrap(),
+            literal_part("abc a", &|ch| ch != ' ').unwrap(),
             (" a", LiteralPart::String(Cow::Borrowed("abc")))
         );
         assert_eq!(
-            literal_part("abc a", "").unwrap(),
+            literal_part("abc a", &|_| true).unwrap(),
             ("", LiteralPart::String(Cow::Borrowed("abc a")))
         );
         assert_eq!(
-            literal_part("\\na a", " ").unwrap(),
+            literal_part("\\na a", &|ch| ch != ' ').unwrap(),
             ("a a", LiteralPart::Escaped('n'))
         );
         assert_eq!(
-            literal_part("\\\na a", " ").unwrap(),
+            literal_part("\\\na a", &|ch| ch != ' ').unwrap(),
             ("a a", LiteralPart::LineContinuation)
+        );
+        assert_eq!(
+            literal_part("安安本来是只兔子\n a", &|ch| ch != ' ').unwrap(),
+            (
+                " a",
+                LiteralPart::String(Cow::Borrowed("安安本来是只兔子\n"))
+            )
         );
     }
 
@@ -821,7 +898,7 @@ MESON_AFTER__AMD64=" \
             ("", BracedExpansion {
                 name: Cow::Borrowed("asdf"),
                 modifier: Some(ExpansionModifier::Substring {
-                    offset: 10,
+                    offset: Cow::Borrowed("10"),
                     length: None
                 })
             })
@@ -840,15 +917,22 @@ MESON_AFTER__AMD64=" \
         assert_eq!(
             expansion_modifier(":10").unwrap(),
             ("", ExpansionModifier::Substring {
-                offset: 10,
+                offset: Cow::Borrowed("10"),
                 length: None
             })
         );
         assert_eq!(
             expansion_modifier(":10:1").unwrap(),
             ("", ExpansionModifier::Substring {
-                offset: 10,
-                length: Some(1)
+                offset: Cow::Borrowed("10"),
+                length: Some(Cow::Borrowed("1"))
+            })
+        );
+        assert_eq!(
+            expansion_modifier(": -10:-1").unwrap(),
+            ("", ExpansionModifier::Substring {
+                offset: Cow::Borrowed(" -10"),
+                length: Some(Cow::Borrowed("-1"))
             })
         );
         expansion_modifier(":").unwrap_err();
@@ -900,9 +984,41 @@ MESON_AFTER__AMD64=" \
                     GlobPart::String(Cow::Borrowed("a")),
                     GlobPart::AnyString
                 ])),
-                string: Rc::new(Text(vec![TextUnit::Unquoted(vec![
+                string: Some(Rc::new(Text(vec![TextUnit::Unquoted(vec![
                     Word::UnbracedVariable(Cow::Borrowed("b"))
-                ])]))
+                ])])))
+            })
+        );
+        assert_eq!(
+            expansion_modifier("/a*}").unwrap(),
+            ("}", ExpansionModifier::ReplaceOnce {
+                pattern: Rc::new(GlobPattern(vec![
+                    GlobPart::String(Cow::Borrowed("a")),
+                    GlobPart::AnyString
+                ])),
+                string: None
+            })
+        );
+        assert_eq!(
+            expansion_modifier("//a*/$b}").unwrap(),
+            ("}", ExpansionModifier::ReplaceAll {
+                pattern: Rc::new(GlobPattern(vec![
+                    GlobPart::String(Cow::Borrowed("a")),
+                    GlobPart::AnyString
+                ])),
+                string: Some(Rc::new(Text(vec![TextUnit::Unquoted(vec![
+                    Word::UnbracedVariable(Cow::Borrowed("b"))
+                ])])))
+            })
+        );
+        assert_eq!(
+            expansion_modifier("//a*}").unwrap(),
+            ("}", ExpansionModifier::ReplaceAll {
+                pattern: Rc::new(GlobPattern(vec![
+                    GlobPart::String(Cow::Borrowed("a")),
+                    GlobPart::AnyString
+                ])),
+                string: None
             })
         );
         assert_eq!(
@@ -912,9 +1028,19 @@ MESON_AFTER__AMD64=" \
                     GlobPart::String(Cow::Borrowed("a")),
                     GlobPart::AnyString
                 ])),
-                string: Rc::new(Text(vec![TextUnit::Unquoted(vec![
+                string: Some(Rc::new(Text(vec![TextUnit::Unquoted(vec![
                     Word::UnbracedVariable(Cow::Borrowed("b"))
-                ])]))
+                ])])))
+            })
+        );
+        assert_eq!(
+            expansion_modifier("/#a*}").unwrap(),
+            ("}", ExpansionModifier::ReplacePrefix {
+                pattern: Rc::new(GlobPattern(vec![
+                    GlobPart::String(Cow::Borrowed("a")),
+                    GlobPart::AnyString
+                ])),
+                string: None
             })
         );
         assert_eq!(
@@ -924,9 +1050,19 @@ MESON_AFTER__AMD64=" \
                     GlobPart::String(Cow::Borrowed("a")),
                     GlobPart::AnyString
                 ])),
-                string: Rc::new(Text(vec![TextUnit::Unquoted(vec![
+                string: Some(Rc::new(Text(vec![TextUnit::Unquoted(vec![
                     Word::UnbracedVariable(Cow::Borrowed("b"))
-                ])]))
+                ])])))
+            })
+        );
+        assert_eq!(
+            expansion_modifier("/%a*}").unwrap(),
+            ("}", ExpansionModifier::ReplaceSuffix {
+                pattern: Rc::new(GlobPattern(vec![
+                    GlobPart::String(Cow::Borrowed("a")),
+                    GlobPart::AnyString
+                ])),
+                string: None
             })
         );
         assert_eq!(
@@ -1022,15 +1158,22 @@ MESON_AFTER__AMD64=" \
         assert_eq!(
             substring_expansion_modifier(":10").unwrap(),
             ("", ExpansionModifier::Substring {
-                offset: 10,
+                offset: Cow::Borrowed("10"),
                 length: None
             })
         );
         assert_eq!(
             substring_expansion_modifier(":10:1").unwrap(),
             ("", ExpansionModifier::Substring {
-                offset: 10,
-                length: Some(1)
+                offset: Cow::Borrowed("10"),
+                length: Some(Cow::Borrowed("1"))
+            })
+        );
+        assert_eq!(
+            substring_expansion_modifier(": -10:1").unwrap(),
+            ("", ExpansionModifier::Substring {
+                offset: Cow::Borrowed(" -10"),
+                length: Some(Cow::Borrowed("1"))
             })
         );
         substring_expansion_modifier(":").unwrap_err();

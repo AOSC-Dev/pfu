@@ -8,9 +8,9 @@ use std::{borrow::Cow, rc::Rc};
 
 /// A APML parse-tree, consisting of a list of tokens.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ApmlAst<'a>(pub Vec<Token<'a>>);
+pub struct ApmlParseTree<'a>(pub Vec<Token<'a>>);
 
-impl ToString for ApmlAst<'_> {
+impl ToString for ApmlParseTree<'_> {
     fn to_string(&self) -> String {
         self.0
             .iter()
@@ -20,11 +20,24 @@ impl ToString for ApmlAst<'_> {
     }
 }
 
+impl<'a> ApmlParseTree<'a> {
+    pub fn parse(src: &'a str) -> Result<Self, nom::Err<nom::error::Error<&'a str>>> {
+        let (src, tree) = super::parser::apml_ast(src)?;
+        if src.len() != 0 {
+            return Err(nom::Err::Failure(nom::error::make_error(
+                src,
+                nom::error::ErrorKind::Fail,
+            )));
+        }
+        Ok(tree)
+    }
+}
+
 /// A token in the AST.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Token<'a> {
     /// A space-like character (`'<char>'`).
-    /// 
+    ///
     /// This currently includes:
     /// - Space (`' '`)
     /// - Tab (`'\t'`)
@@ -118,7 +131,7 @@ impl ToString for TextUnit<'_> {
                 .map(|word| word.to_string())
                 .collect::<Vec<_>>()
                 .join(""),
-            TextUnit::SingleQuote(text) => text.to_string(),
+            TextUnit::SingleQuote(text) => format!("'{}'", text),
             TextUnit::DuobleQuote(words) => format!(
                 "\"{}\"",
                 words
@@ -206,9 +219,9 @@ pub enum ExpansionModifier<'a> {
     /// The range is [offset, (offset+length)) (indexing from zero).
     Substring {
         /// Offset.
-        offset: usize,
+        offset: Cow<'a, str>,
         /// Length.
-        length: Option<usize>,
+        length: Option<Cow<'a, str>>,
     },
     /// Stripping the shortest matching prefix (`"#<pattern>"`).
     StripShortestPrefix(Rc<GlobPattern<'a>>),
@@ -218,25 +231,34 @@ pub enum ExpansionModifier<'a> {
     StripShortestSuffix(Rc<GlobPattern<'a>>),
     /// Stripping the longest matching suffix (`"%%<pattern>"`).
     StripLongestSuffix(Rc<GlobPattern<'a>>),
-    /// Replacing the first match of a pattern with a text (`"/<pattern>/<string>"`).
+    /// Replacing the first match of a pattern with a text (`"/<pattern>[/<string>]"`).
+    ///
+    /// As an bash undocumented usage, `string` can be ommitted, leaving `"/<pattern>"` structure,
+    /// which removes the first match of the pattern.
     ReplaceOnce {
         pattern: Rc<GlobPattern<'a>>,
-        string: Rc<Text<'a>>,
+        string: Option<Rc<Text<'a>>>,
     },
-    /// Replacing the all matches of a pattern with a text (`"//<pattern>/<string>"`).
+    /// Replacing the all matches of a pattern with a text (`"//<pattern>[/<string>]"`).
+    ///
+    /// As an bash undocumented usage, `string` can be ommitted.
     ReplaceAll {
         pattern: Rc<GlobPattern<'a>>,
-        string: Rc<Text<'a>>,
+        string: Option<Rc<Text<'a>>>,
     },
-    /// Replacing the prefix of a pattern with a text (`"/#<pattern>/<string>"`).
+    /// Replacing the prefix of a pattern with a text (`"/#<pattern>[/<string>]"`).
+    ///
+    /// As an bash undocumented usage, `string` can be ommitted.
     ReplacePrefix {
         pattern: Rc<GlobPattern<'a>>,
-        string: Rc<Text<'a>>,
+        string: Option<Rc<Text<'a>>>,
     },
-    /// Replacing the suffix of a pattern with a text (`"/%<pattern>/<string>"`).
+    /// Replacing the suffix of a pattern with a text (`"/%<pattern>[/<string>]"`).
+    ///
+    /// As an bash undocumented usage, `string` can be ommitted.
     ReplaceSuffix {
         pattern: Rc<GlobPattern<'a>>,
-        string: Rc<Text<'a>>,
+        string: Option<Rc<Text<'a>>>,
     },
     /// Upper-casify the first match of a pattern (`"^<pattern>"`).
     UpperOnce(Rc<GlobPattern<'a>>),
@@ -269,18 +291,22 @@ impl ToString for ExpansionModifier<'_> {
             ExpansionModifier::StripLongestPrefix(pattern) => format!("##{}", pattern.to_string()),
             ExpansionModifier::StripShortestSuffix(pattern) => format!("%{}", pattern.to_string()),
             ExpansionModifier::StripLongestSuffix(pattern) => format!("%%{}", pattern.to_string()),
-            ExpansionModifier::ReplaceOnce { pattern, string } => {
-                format!("/{}/{}", pattern.to_string(), string.to_string())
-            }
-            ExpansionModifier::ReplaceAll { pattern, string } => {
-                format!("//{}/{}", pattern.to_string(), string.to_string())
-            }
-            ExpansionModifier::ReplacePrefix { pattern, string } => {
-                format!("/#{}/{}", pattern.to_string(), string.to_string())
-            }
-            ExpansionModifier::ReplaceSuffix { pattern, string } => {
-                format!("/%{}/{}", pattern.to_string(), string.to_string())
-            }
+            ExpansionModifier::ReplaceOnce { pattern, string } => match string {
+                Some(string) => format!("/{}/{}", pattern.to_string(), string.to_string()),
+                None => format!("/{}", pattern.to_string()),
+            },
+            ExpansionModifier::ReplaceAll { pattern, string } => match string {
+                Some(string) => format!("//{}/{}", pattern.to_string(), string.to_string()),
+                None => format!("//{}", pattern.to_string()),
+            },
+            ExpansionModifier::ReplacePrefix { pattern, string } => match string {
+                Some(string) => format!("/#{}/{}", pattern.to_string(), string.to_string()),
+                None => format!("/#{}", pattern.to_string()),
+            },
+            ExpansionModifier::ReplaceSuffix { pattern, string } => match string {
+                Some(string) => format!("/%{}/{}", pattern.to_string(), string.to_string()),
+                None => format!("/%{}", pattern.to_string()),
+            },
             ExpansionModifier::UpperOnce(pattern) => format!("^{}", pattern.to_string()),
             ExpansionModifier::UpperAll(pattern) => format!("^^{}", pattern.to_string()),
             ExpansionModifier::LowerOnce(pattern) => format!(",{}", pattern.to_string()),
