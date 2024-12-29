@@ -10,8 +10,9 @@ repository.workspace = true
 
 [dependencies]
 nom = { version = "7.1.3", optional = true }
+regex = { version = "1.11.1", optional = true }
 thiserror = "2.0.9"
 
 [features]
 default = ["apml"]
-apml = ["dep:nom"]
+apml = ["dep:nom", "dep:regex"]

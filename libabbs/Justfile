@@ -18,3 +18,21 @@ apml-lex-all-defines tree: build-examples
         echo "$file"
         QUIET=y ../target/debug/examples/apml-lex "$file"
     done
+
+apml-eval-all-specs tree: build-examples
+    #!/usr/bin/bash
+    set -euo pipefail
+    shopt -s globstar
+    for file in "{{tree}}"/**/spec; do
+        echo "$file"
+        QUIET=y ../target/debug/examples/apml-eval "$file"
+    done
+
+apml-eval-all-defines tree: build-examples
+    #!/usr/bin/bash
+    set -euo pipefail
+    shopt -s globstar
+    for file in "{{tree}}"/**/defines; do
+        echo "$file"
+        QUIET=y ../target/debug/examples/apml-eval "$file"
+    done
