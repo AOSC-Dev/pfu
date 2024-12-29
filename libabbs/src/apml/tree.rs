@@ -21,6 +21,7 @@ impl ToString for ApmlParseTree<'_> {
 }
 
 impl<'a> ApmlParseTree<'a> {
+    #[must_use]
     pub fn parse(src: &'a str) -> Result<Self, nom::Err<nom::error::Error<&'a str>>> {
         let (src, tree) = super::parser::apml_ast(src)?;
         if src.len() != 0 {

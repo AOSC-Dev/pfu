@@ -17,6 +17,7 @@ pub struct ApmlContext {
 
 impl ApmlContext {
     /// Evaluates a APML source code, expanding variables.
+    #[must_use]
     pub fn eval(tree: &ApmlParseTree) -> std::result::Result<Self, EvalError> {
         let mut apml = ApmlContext {
             variables: HashMap::new(),
@@ -26,6 +27,7 @@ impl ApmlContext {
     }
 
     /// Parses a APML source code, expanding variables.
+    #[must_use]
     pub fn parse(src: &str) -> std::result::Result<Self, EvalError> {
         let tree =
             ApmlParseTree::parse(src).map_err(|err| EvalError::SyntaxError(err.to_string()))?;
@@ -33,16 +35,19 @@ impl ApmlContext {
     }
 
     /// Gets a variable value.
+    #[must_use]
     pub fn get(&self, name: &str) -> Option<&VariableValue> {
         self.variables.get(name)
     }
 
     /// Gets a variable value or returns a default value if not found.
+    #[must_use]
     pub fn read(&self, name: &str) -> VariableValue {
         self.variables.get(name).cloned().unwrap_or_default()
     }
 
     /// Gets a variable value.
+    #[must_use]
     pub fn get_mut(&mut self, name: &str) -> Option<&mut VariableValue> {
         self.variables.get_mut(name)
     }
@@ -55,6 +60,11 @@ impl ApmlContext {
     /// Inserts a variable.
     pub fn insert(&mut self, name: String, value: VariableValue) {
         self.variables.insert(name, value);
+    }
+
+    /// Iterates over all variable names.
+    pub fn keys(&self) -> impl Iterator<Item = &String> {
+        self.variables.keys()
     }
 }
 
@@ -70,6 +80,7 @@ impl VariableValue {
     ///
     /// If the value is an array, it will be converted into a space-delimited
     /// string.
+    #[must_use]
     pub fn as_string(&self) -> String {
         match self {
             VariableValue::String(text) => text.to_owned(),
@@ -81,6 +92,7 @@ impl VariableValue {
     ///
     /// If the value is an array, it will be converted into a space-delimited
     /// string.
+    #[must_use]
     pub fn into_string(self) -> String {
         match self {
             VariableValue::String(text) => text,
@@ -93,6 +105,7 @@ impl VariableValue {
     /// If the value is a string value, it will be converted into a
     /// single-element array. If the string is empty, it will be
     /// converted into a empty array.
+    #[must_use]
     pub fn as_array(&self) -> Vec<String> {
         match self {
             VariableValue::String(text) => {
@@ -111,6 +124,7 @@ impl VariableValue {
     /// If the value is a string value, it will be converted into a
     /// single-element array. If the string is empty, it will be
     /// converted into a empty array.
+    #[must_use]
     pub fn into_array(self) -> Vec<String> {
         match self {
             VariableValue::String(text) => {
@@ -125,6 +139,7 @@ impl VariableValue {
     }
 
     /// Returns the length of string or array.
+    #[must_use]
     pub fn len(&self) -> usize {
         match self {
             VariableValue::String(text) => text.len(),
@@ -133,6 +148,7 @@ impl VariableValue {
     }
 
     /// Returns if the value is empty.
+    #[must_use]
     pub fn is_null(&self) -> bool {
         match self {
             VariableValue::String(text) => text.is_empty(),
