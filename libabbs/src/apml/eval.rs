@@ -186,23 +186,23 @@ fn apply_expansion_modifier(
             }
         }
         ExpansionModifier::StripShortestPrefix(pattern) => {
-            Ok(glob_to_regex(pattern, "^", "", false)?
-                .replace(&value.into_string(), "")
+            Ok(glob_to_regex(pattern, "^(?:", ")?(.*)$", false)?
+                .replace(&value.into_string(), MatchReplacer(2))
                 .to_string())
         }
         ExpansionModifier::StripLongestPrefix(pattern) => {
-            Ok(glob_to_regex(pattern, "^", "", true)?
-                .replace(&value.into_string(), "")
+            Ok(glob_to_regex(pattern, "^(?:", ")?(.*?)$", true)?
+                .replace(&value.into_string(), MatchReplacer(2))
                 .to_string())
         }
         ExpansionModifier::StripShortestSuffix(pattern) => {
-            Ok(glob_to_regex(pattern, "", "$", false)?
-                .replace(&value.into_string(), "")
+            Ok(glob_to_regex(pattern, "^(.*)(?:", ")$", false)?
+                .replace(&value.into_string(), MatchReplacer(1))
                 .to_string())
         }
         ExpansionModifier::StripLongestSuffix(pattern) => {
-            Ok(glob_to_regex(pattern, "", "$", true)?
-                .replace(&value.into_string(), "")
+            Ok(glob_to_regex(pattern, "^(.*?)(?:", ")$", true)?
+                .replace(&value.into_string(), MatchReplacer(1))
                 .to_string())
         }
         ExpansionModifier::ReplaceOnce { pattern, string } => match string {
@@ -290,7 +290,7 @@ fn glob_to_regex(pattern: &GlobPattern, pre: &str, post: &str, greedy: bool) -> 
                     result.push_str(".*?")
                 }
             }
-            GlobPart::AnyChar => result.push_str("."),
+            GlobPart::AnyChar => result.push_str(".?"),
             GlobPart::Range(_) => todo!(),
         }
     }
@@ -301,6 +301,14 @@ fn glob_to_regex(pattern: &GlobPattern, pre: &str, post: &str, greedy: bool) -> 
         .unicode(true)
         .build()?;
     Ok(result)
+}
+
+struct MatchReplacer(usize);
+
+impl regex::Replacer for MatchReplacer {
+    fn replace_append(&mut self, caps: &regex::Captures<'_>, dst: &mut String) {
+        dst.push_str(&caps[self.0]);
+    }
 }
 
 struct UppercaseReplacer;
