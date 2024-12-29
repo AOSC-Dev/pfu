@@ -296,6 +296,8 @@ fn expansion_modifier(i: &str) -> IResult<&str, ExpansionModifier> {
             ExpansionModifier::WhenSet,
         ),
         substring_expansion_modifier,
+        value(ExpansionModifier::ArrayElements, tag("[@]")),
+        value(ExpansionModifier::SingleWordElements, tag("[*]")),
     ))(i)
 }
 
@@ -361,7 +363,7 @@ ${1/a/a}${1//a?a/$a}${1/#a/b}${1/%a/b}${1^*}${1^^*}${1,*}\
 ${1,,*}${1:?err}${1:-unset}${1:+set}${1/a}${1//a}${1/#a}\
 ${1/%a}${1//a/}"
 b=("-a" \
-    -b)
+    -b "${a[@]}" "${a[*]}")
 "##;
         assert_eq!(
             apml_ast(src).unwrap(),
@@ -620,7 +622,21 @@ b=("-a" \
                             ArrayToken::Spacy(' '),
                             ArrayToken::Element(Rc::new(Text(vec![TextUnit::Unquoted(vec![
                                 Word::Literal(vec![LiteralPart::String(Cow::Borrowed("-b"))])
-                            ])])))
+                            ])]))),
+                            ArrayToken::Spacy(' '),
+                            ArrayToken::Element(Rc::new(Text(vec![TextUnit::DuobleQuote(vec![
+                                Word::BracedVariable(BracedExpansion {
+                                    name: Cow::Borrowed("a"),
+                                    modifier: Some(ExpansionModifier::ArrayElements)
+                                })
+                            ])]))),
+                            ArrayToken::Spacy(' '),
+                            ArrayToken::Element(Rc::new(Text(vec![TextUnit::DuobleQuote(vec![
+                                Word::BracedVariable(BracedExpansion {
+                                    name: Cow::Borrowed("a"),
+                                    modifier: Some(ExpansionModifier::SingleWordElements)
+                                })
+                            ])]))),
                         ])
                     }),
                     Token::Newline,
@@ -1289,6 +1305,14 @@ MESON_AFTER__AMD64=" \
                     }),
                 ])])))
             )
+        );
+        assert_eq!(
+            expansion_modifier("[@]}").unwrap(),
+            ("}", ExpansionModifier::ArrayElements)
+        );
+        assert_eq!(
+            expansion_modifier("[*]}").unwrap(),
+            ("}", ExpansionModifier::SingleWordElements)
         );
     }
 

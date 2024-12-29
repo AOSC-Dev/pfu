@@ -288,6 +288,10 @@ pub enum ExpansionModifier<'a> {
     WhenUnset(Rc<Text<'a>>),
     /// Returning a text when the variable is set (`":+<text>"`).
     WhenSet(Rc<Text<'a>>),
+    /// Expands to array elements (`"[@]"`).
+    ArrayElements,
+    /// Expands to a string of array elements concatened with space (`"[*]"`).
+    SingleWordElements,
 }
 
 impl ToString for ExpansionModifier<'_> {
@@ -325,6 +329,8 @@ impl ToString for ExpansionModifier<'_> {
             ExpansionModifier::Length => unreachable!(),
             ExpansionModifier::WhenUnset(text) => format!(":-{}", text.to_string()),
             ExpansionModifier::WhenSet(text) => format!(":+{}", text.to_string()),
+            ExpansionModifier::ArrayElements => "[@]".to_string(),
+            ExpansionModifier::SingleWordElements => "[*]".to_string(),
         }
     }
 }
