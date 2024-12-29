@@ -72,6 +72,21 @@ fn variable_value(i: &str) -> IResult<&str, VariableValue> {
 }
 
 #[inline]
+fn array_token(i: &str) -> IResult<&str, ArrayToken> {
+    alt((
+        // spacy
+        map(spacy_char, ArrayToken::Spacy),
+        // newline
+        value(ArrayToken::Newline, newline),
+        // element
+        map(
+            |s| text(s, &|ch| ch != ' ' && ch != '#'),
+            |text| ArrayToken::Element(Rc::new(text)),
+        ),
+    ))(i)
+}
+
+#[inline]
 fn text<'a, Cond>(i: &'a str, cond: &Cond) -> IResult<&'a str, Text<'a>>
 where
     Cond: Fn(char) -> bool,
@@ -686,6 +701,31 @@ MESON_AFTER__AMD64=" \
                         LiteralPart::String(Cow::Borrowed("c"))
                     ])
                 ])])))
+            )
+        );
+    }
+
+    #[test]
+    fn test_array_token() {
+        assert_eq!(array_token(" a").unwrap(), ("a", ArrayToken::Spacy(' ')));
+        assert_eq!(array_token("\ta").unwrap(), ("a", ArrayToken::Spacy('\t')));
+        assert_eq!(array_token("\na").unwrap(), ("a", ArrayToken::Newline));
+        assert_eq!(
+            array_token("asdf ").unwrap(),
+            (
+                " ",
+                ArrayToken::Element(Rc::new(Text(vec![TextUnit::Unquoted(vec![
+                    Word::Literal(vec![LiteralPart::String(Cow::Borrowed("asdf"))])
+                ])])))
+            )
+        );
+        assert_eq!(
+            array_token("'asdf' ").unwrap(),
+            (
+                " ",
+                ArrayToken::Element(Rc::new(Text(vec![TextUnit::SingleQuote(Cow::Borrowed(
+                    "asdf"
+                ))])))
             )
         );
     }

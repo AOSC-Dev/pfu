@@ -81,12 +81,22 @@ impl ToString for VariableDefinition<'_> {
 pub enum VariableValue<'a> {
     /// A string value (`"<text>"`).
     String(Rc<Text<'a>>),
+    /// A array value (`"(<tokens>)"`)
+    Array(Vec<ArrayToken<'a>>),
 }
 
 impl ToString for VariableValue<'_> {
     fn to_string(&self) -> String {
         match self {
             VariableValue::String(text) => text.to_string(),
+            VariableValue::Array(tokens) => format!(
+                "({})",
+                tokens
+                    .iter()
+                    .map(|token| token.to_string())
+                    .collect::<Vec<_>>()
+                    .join("")
+            ),
         }
     }
 }
@@ -355,6 +365,29 @@ impl ToString for GlobPart<'_> {
             GlobPart::AnyString => "*".to_string(),
             GlobPart::AnyChar => "?".to_string(),
             GlobPart::Range(range) => format!("[{}]", range),
+        }
+    }
+}
+
+/// A token in an array variable value.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum ArrayToken<'a> {
+    /// A space-like character (`'<char>'`).
+    ///
+    /// See [Token::Spacy] for more.
+    Spacy(char),
+    /// A newline character (`'\n'`, ASCII code 0x0A).
+    Newline,
+    /// A array element (`"<text>"`).
+    Element(Rc<Text<'a>>),
+}
+
+impl ToString for ArrayToken<'_> {
+    fn to_string(&self) -> String {
+        match self {
+            ArrayToken::Spacy(ch) => ch.to_string(),
+            ArrayToken::Newline => '\n'.to_string(),
+            ArrayToken::Element(text) => text.to_string(),
         }
     }
 }
