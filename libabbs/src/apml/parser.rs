@@ -7,7 +7,7 @@ use nom::{
     branch::alt,
     bytes::complete::{tag, take_till, take_until1, take_while, take_while1},
     character::complete::{anychar, char, newline},
-    combinator::{map, opt, value},
+    combinator::{map, opt, success, value},
     multi::{many0, many1},
     sequence::{delimited, pair, preceded, separated_pair},
 };
@@ -63,11 +63,18 @@ fn variable_name(i: &str) -> IResult<&str, &str> {
 #[inline]
 fn variable_value(i: &str) -> IResult<&str, VariableValue> {
     alt((
+        // array
+        map(
+            delimited(char('('), many0(array_token), char(')')),
+            VariableValue::Array,
+        ),
         // string
         map(
             |s| text(s, &|ch| ch != ' ' && ch != '#'),
             |text| VariableValue::String(Rc::new(text)),
         ),
+        // null
+        success(VariableValue::String(Rc::new(Text(vec![])))),
     ))(i)
 }
 
@@ -80,7 +87,7 @@ fn array_token(i: &str) -> IResult<&str, ArrayToken> {
         value(ArrayToken::Newline, newline),
         // element
         map(
-            |s| text(s, &|ch| ch != ' ' && ch != '#'),
+            |s| text(s, &|ch| ch != ' ' && ch != '#' && ch != ')'),
             |text| ArrayToken::Element(Rc::new(text)),
         ),
     ))(i)
@@ -91,7 +98,7 @@ fn text<'a, Cond>(i: &'a str, cond: &Cond) -> IResult<&'a str, Text<'a>>
 where
     Cond: Fn(char) -> bool,
 {
-    map(many0(|s| text_unit(s, &cond)), Text)(i)
+    map(many1(|s| text_unit(s, &cond)), Text)(i)
 }
 
 #[inline]
@@ -703,6 +710,47 @@ MESON_AFTER__AMD64=" \
                 ])])))
             )
         );
+        assert_eq!(
+            variable_value("(a b)\n").unwrap(),
+            (
+                "\n",
+                VariableValue::Array(vec![
+                    ArrayToken::Element(Rc::new(Text(vec![TextUnit::Unquoted(vec![
+                        Word::Literal(vec![LiteralPart::String(Cow::Borrowed("a")),])
+                    ])]))),
+                    ArrayToken::Spacy(' '),
+                    ArrayToken::Element(Rc::new(Text(vec![TextUnit::Unquoted(vec![
+                        Word::Literal(vec![LiteralPart::String(Cow::Borrowed("b")),])
+                    ])]))),
+                ])
+            )
+        );
+        assert_eq!(
+            variable_value("(a \"${#a} b\\ #l \\\nc\"\n)\n").unwrap(),
+            (
+                "\n",
+                VariableValue::Array(vec![
+                    ArrayToken::Element(Rc::new(Text(vec![TextUnit::Unquoted(vec![
+                        Word::Literal(vec![LiteralPart::String(Cow::Borrowed("a")),])
+                    ])]))),
+                    ArrayToken::Spacy(' '),
+                    ArrayToken::Element(Rc::new(Text(vec![TextUnit::DuobleQuote(vec![
+                        Word::BracedVariable(BracedExpansion {
+                            name: Cow::Borrowed("a"),
+                            modifier: Some(ExpansionModifier::Length)
+                        }),
+                        Word::Literal(vec![
+                            LiteralPart::String(Cow::Borrowed(" b")),
+                            LiteralPart::Escaped(' '),
+                            LiteralPart::String(Cow::Borrowed("#l ")),
+                            LiteralPart::LineContinuation,
+                            LiteralPart::String(Cow::Borrowed("c"))
+                        ])
+                    ])]))),
+                    ArrayToken::Newline,
+                ])
+            )
+        );
     }
 
     #[test]
@@ -732,7 +780,7 @@ MESON_AFTER__AMD64=" \
 
     #[test]
     fn test_text() {
-        assert_eq!(text("", &|_| true).unwrap(), ("", Text(vec![])));
+        text("", &|_| true).unwrap_err();
         assert_eq!(
             text("asd\\f\\\n134$a'test'\"a$a${a}  \" a", &|ch| ch != ' '
                 && ch != '#')
