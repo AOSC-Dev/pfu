@@ -46,7 +46,7 @@ pub enum Token<'a> {
     Newline,
     /// A comment (`"#<text>"`).
     Comment(Cow<'a, str>),
-    /// A variable definition (`"<name>=<value>"`).
+    /// A variable definition.
     Variable(VariableDefinition<'a>),
 }
 
@@ -66,13 +66,38 @@ impl ToString for Token<'_> {
 pub struct VariableDefinition<'a> {
     /// Name of the variable.
     pub name: Cow<'a, str>,
+    /// Bianry operator.
+    pub op: VariableOp,
     /// Value of the variable.
     pub value: VariableValue<'a>,
 }
 
 impl ToString for VariableDefinition<'_> {
     fn to_string(&self) -> String {
-        format!("{}={}", self.name, self.value.to_string())
+        format!(
+            "{}{}{}",
+            self.name,
+            self.op.to_string(),
+            self.value.to_string()
+        )
+    }
+}
+
+/// A variable operator.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum VariableOp {
+    /// Value assignment (`'='`).
+    Assignment,
+    /// Appending (`"+="`).
+    Append,
+}
+
+impl ToString for VariableOp {
+    fn to_string(&self) -> String {
+        match self {
+            VariableOp::Assignment => "=".to_string(),
+            VariableOp::Append => "+=".to_string(),
+        }
     }
 }
 
@@ -163,6 +188,8 @@ pub enum Word<'a> {
     UnbracedVariable(Cow<'a, str>),
     /// A braced variable expansion (`"${<expansion>}"`).
     BracedVariable(BracedExpansion<'a>),
+    /// A sub-command expansion (`"$(<tokens>)"`).
+    Subcommand(Vec<ArrayToken<'a>>),
 }
 
 impl ToString for Word<'_> {
@@ -175,6 +202,14 @@ impl ToString for Word<'_> {
                 .join(""),
             Word::UnbracedVariable(name) => format!("${}", name),
             Word::BracedVariable(exp) => format!("${{{}}}", exp.to_string()),
+            Word::Subcommand(tokens) => format!(
+                "$({})",
+                tokens
+                    .iter()
+                    .map(|token| token.to_string())
+                    .collect::<Vec<_>>()
+                    .join(""),
+            ),
         }
     }
 }
@@ -384,6 +419,8 @@ pub enum ArrayToken<'a> {
     Spacy(char),
     /// A newline character (`'\n'`, ASCII code 0x0A).
     Newline,
+    /// A comment (`"#<text>"`).
+    Comment(Cow<'a, str>),
     /// A array element (`"<text>"`).
     Element(Rc<Text<'a>>),
 }
@@ -393,6 +430,7 @@ impl ToString for ArrayToken<'_> {
         match self {
             ArrayToken::Spacy(ch) => ch.to_string(),
             ArrayToken::Newline => '\n'.to_string(),
+            ArrayToken::Comment(text) => format!("#{}", text),
             ArrayToken::Element(text) => text.to_string(),
         }
     }

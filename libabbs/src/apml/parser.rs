@@ -9,7 +9,7 @@ use nom::{
     character::complete::{anychar, char, newline},
     combinator::{map, opt, value},
     multi::{many0, many1},
-    sequence::{delimited, pair, preceded, separated_pair},
+    sequence::{delimited, pair, preceded, tuple},
 };
 
 use super::tree::*;
@@ -47,12 +47,21 @@ fn comment_token(i: &str) -> IResult<&str, Token> {
 #[inline]
 fn variable_def(i: &str) -> IResult<&str, VariableDefinition> {
     map(
-        separated_pair(variable_name, char('='), variable_value),
-        |(name, value)| VariableDefinition {
+        tuple((variable_name, variable_op, variable_value)),
+        |(name, op, value)| VariableDefinition {
             name: Cow::Borrowed(name),
+            op,
             value,
         },
     )(i)
+}
+
+#[inline]
+fn variable_op(i: &str) -> IResult<&str, VariableOp> {
+    alt((
+        value(VariableOp::Assignment, char('=')),
+        value(VariableOp::Append, tag("+=")),
+    ))(i)
 }
 
 #[inline]
@@ -83,6 +92,10 @@ fn array_token(i: &str) -> IResult<&str, ArrayToken> {
         map(spacy_char, ArrayToken::Spacy),
         // newline
         value(ArrayToken::Newline, newline),
+        //comment
+        map(preceded(char('#'), take_till(|ch| ch == '\n')), |comment| {
+            ArrayToken::Comment(Cow::Borrowed(comment))
+        }),
         // element
         map(
             |s| text(s, &|ch| ch != ' ' && ch != '#' && ch != ')'),
@@ -149,6 +162,11 @@ where
         map(preceded(char('$'), variable_name), |name| {
             Word::UnbracedVariable(Cow::Borrowed(name))
         }),
+        // subcommand
+        map(
+            delimited(tag("$("), many0(array_token), char(')')),
+            Word::Subcommand,
+        ),
         // literal
         map(many1(|s| literal_part(s, cond)), |parts| {
             Word::Literal(parts)
@@ -362,8 +380,9 @@ c ${1:1}${1:1: -1}${1##a}${1#a.*[:alpha:]b?\?}${1%%1}${1%1}\
 ${1/a/a}${1//a?a/$a}${1/#a/b}${1/%a/b}${1^*}${1^^*}${1,*}\
 ${1,,*}${1:?err}${1:-unset}${1:+set}${1/a}${1//a}${1/#a}\
 ${1/%a}${1//a/}"
-b=("-a" \
-    -b "${a[@]}" "${a[*]}")
+b+=("-a" \
+    -b "${a[@]}" "${a[*]}" #asdf
+)
 "##;
         assert_eq!(
             apml_ast(src).unwrap(),
@@ -375,6 +394,7 @@ b=("-a" \
                     Token::Newline,
                     Token::Variable(VariableDefinition {
                         name: Cow::Borrowed("a"),
+                        op: VariableOp::Assignment,
                         value: VariableValue::String(Rc::new(Text(vec![
                             TextUnit::Unquoted(vec![Word::Literal(vec![LiteralPart::String(
                                 Cow::Borrowed("b")
@@ -387,6 +407,7 @@ b=("-a" \
                     Token::Newline,
                     Token::Variable(VariableDefinition {
                         name: Cow::Borrowed("K"),
+                        op: VariableOp::Assignment,
                         value: VariableValue::String(Rc::new(Text(vec![
                             TextUnit::Unquoted(vec![Word::Literal(vec![LiteralPart::String(
                                 Cow::Borrowed("a")
@@ -608,6 +629,7 @@ b=("-a" \
                     Token::Newline,
                     Token::Variable(VariableDefinition {
                         name: Cow::Borrowed("b"),
+                        op: VariableOp::Append,
                         value: VariableValue::Array(vec![
                             ArrayToken::Element(Rc::new(Text(vec![TextUnit::DuobleQuote(vec![
                                 Word::Literal(vec![LiteralPart::String(Cow::Borrowed("-a"))])
@@ -637,6 +659,9 @@ b=("-a" \
                                     modifier: Some(ExpansionModifier::SingleWordElements)
                                 })
                             ])]))),
+                            ArrayToken::Spacy(' '),
+                            ArrayToken::Comment(Cow::Borrowed("asdf")),
+                            ArrayToken::Newline,
                         ])
                     }),
                     Token::Newline,
@@ -678,6 +703,7 @@ MESON_AFTER__AMD64=" \
                 "\n",
                 Token::Variable(VariableDefinition {
                     name: Cow::Borrowed("a"),
+                    op: VariableOp::Assignment,
                     value: VariableValue::String(Rc::new(Text(vec![])))
                 })
             )
@@ -700,6 +726,7 @@ MESON_AFTER__AMD64=" \
             variable_def("a=\n").unwrap(),
             ("\n", VariableDefinition {
                 name: Cow::Borrowed("a"),
+                op: VariableOp::Assignment,
                 value: VariableValue::String(Rc::new(Text(vec![])))
             })
         );
@@ -707,12 +734,35 @@ MESON_AFTER__AMD64=" \
             variable_def("a=b$0\n").unwrap(),
             ("\n", VariableDefinition {
                 name: Cow::Borrowed("a"),
+                op: VariableOp::Assignment,
                 value: VariableValue::String(Rc::new(Text(vec![TextUnit::Unquoted(vec![
                     Word::Literal(vec![LiteralPart::String(Cow::Borrowed("b"))]),
                     Word::UnbracedVariable(Cow::Borrowed("0")),
                 ])])))
             })
         );
+        assert_eq!(
+            variable_def("a+=b$0\n").unwrap(),
+            ("\n", VariableDefinition {
+                name: Cow::Borrowed("a"),
+                op: VariableOp::Append,
+                value: VariableValue::String(Rc::new(Text(vec![TextUnit::Unquoted(vec![
+                    Word::Literal(vec![LiteralPart::String(Cow::Borrowed("b"))]),
+                    Word::UnbracedVariable(Cow::Borrowed("0")),
+                ])])))
+            })
+        );
+    }
+
+    #[test]
+    fn test_variable_op() {
+        assert_eq!(
+            variable_op("=123a").unwrap(),
+            ("123a", VariableOp::Assignment)
+        );
+        assert_eq!(variable_op("+=123a").unwrap(), ("123a", VariableOp::Append));
+        variable_name("!!!").unwrap_err();
+        variable_name("").unwrap_err();
     }
 
     #[test]
@@ -811,6 +861,10 @@ MESON_AFTER__AMD64=" \
         assert_eq!(array_token(" a").unwrap(), ("a", ArrayToken::Spacy(' ')));
         assert_eq!(array_token("\ta").unwrap(), ("a", ArrayToken::Spacy('\t')));
         assert_eq!(array_token("\na").unwrap(), ("a", ArrayToken::Newline));
+        assert_eq!(
+            array_token("#asdf\na").unwrap(),
+            ("\na", ArrayToken::Comment(Cow::Borrowed("asdf")))
+        );
         assert_eq!(
             array_token("asdf ").unwrap(),
             (
@@ -1008,6 +1062,18 @@ MESON_AFTER__AMD64=" \
                         ])
                     )))
                 })
+            )
+        );
+        assert_eq!(
+            word("$(123 ) a", &|ch| ch != ' ').unwrap(),
+            (
+                " a",
+                Word::Subcommand(vec![
+                    ArrayToken::Element(Rc::new(Text(vec![TextUnit::Unquoted(vec![
+                        Word::Literal(vec![LiteralPart::String(Cow::Borrowed("123"))])
+                    ])]))),
+                    ArrayToken::Spacy(' ')
+                ])
             )
         );
     }
