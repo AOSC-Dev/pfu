@@ -5,9 +5,9 @@ use std::{borrow::Cow, rc::Rc};
 use nom::{
     IResult, Parser,
     branch::alt,
-    bytes::complete::{tag, take_till, take_until1, take_while, take_while1},
-    character::complete::{anychar, char, newline},
-    combinator::{map, opt, value},
+    bytes::complete::{tag, take, take_till, take_until1, take_while, take_while1},
+    character::complete::{anychar, char, newline, one_of},
+    combinator::{map, opt, recognize, value},
     multi::{many0, many1},
     sequence::{delimited, pair, preceded, tuple},
 };
@@ -137,21 +137,29 @@ where
         // double quoted
         delimited(
             char('"'),
-            map(many0(|s| word(s, &|_| true)), TextUnit::DuobleQuote),
+            map(
+                many0(|s| word(s, &|_| true, &one_of("$\\\"`"))),
+                TextUnit::DuobleQuote,
+            ),
             char('"'),
         ),
         // unquoted
         map(
-            many1(|s| word(s, &|ch| cond(ch) && ch != '\'' && ch != '\n')),
+            many1(|s| word(s, &|ch| cond(ch) && ch != '\'' && ch != '\n', &anychar)),
             TextUnit::Unquoted,
         ),
     ))(i)
 }
 
 #[inline]
-fn word<'a, Cond>(i: &'a str, cond: &Cond) -> IResult<&'a str, Word<'a>>
+fn word<'a, Cond, EscCond>(
+    i: &'a str,
+    cond: &Cond,
+    escape_cond: &EscCond,
+) -> IResult<&'a str, Word<'a>>
 where
     Cond: Fn(char) -> bool,
+    EscCond: Fn(&'a str) -> IResult<&'a str, char>,
 {
     alt((
         // braced variable
@@ -168,26 +176,36 @@ where
             Word::Subcommand,
         ),
         // literal
-        map(many1(|s| literal_part(s, cond)), |parts| {
+        map(many1(|s| literal_part(s, cond, escape_cond)), |parts| {
             Word::Literal(parts)
         }),
     ))(i)
 }
 
 #[inline]
-fn literal_part<'a, Cond>(i: &'a str, cond: &Cond) -> IResult<&'a str, LiteralPart<'a>>
+fn literal_part<'a, Cond, EscCond>(
+    i: &'a str,
+    literal_cond: &Cond,
+    escape_cond: &EscCond,
+) -> IResult<&'a str, LiteralPart<'a>>
 where
     Cond: Fn(char) -> bool,
+    EscCond: Fn(&'a str) -> IResult<&'a str, char>,
 {
     alt((
         // line continuation
         value(LiteralPart::LineContinuation, tag("\\\n")),
         // escaped
-        map(preceded(char('\\'), anychar), LiteralPart::Escaped),
-        // literal
-        map(take_while1(|ch| !"$\"\\".contains(ch) && cond(ch)), |s| {
+        map(preceded(char('\\'), escape_cond), LiteralPart::Escaped),
+        // invalid escaped
+        map(recognize(pair(char('\\'), take(1usize))), |s| {
             LiteralPart::String(Cow::Borrowed(s))
         }),
+        // literal
+        map(
+            take_while1(|ch| !"$\"\\".contains(ch) && literal_cond(ch)),
+            |s| LiteralPart::String(Cow::Borrowed(s)),
+        ),
     ))(i)
 }
 
@@ -374,7 +392,7 @@ mod test {
         let src = r##"# Test APML
 
 a=b'c' # Inline comment
-K=a"${#a} $ab b\ #l \
+K=a"${#a} $ab b\ \\#l \
 安安本来是只兔子，但有一天早上醒来发现自己变成了长着兔耳和兔尾巴的人类
 c ${1:1}${1:1: -1}${1##a}${1#a.*[:alpha:]b?\?}${1%%1}${1%1}\
 ${1/a/a}${1//a?a/$a}${1/#a/b}${1/%a/b}${1^*}${1^^*}${1,*}\
@@ -421,7 +439,8 @@ b+=("-a" \
                                 Word::UnbracedVariable(Cow::Borrowed("ab")),
                                 Word::Literal(vec![
                                     LiteralPart::String(Cow::Borrowed(" b")),
-                                    LiteralPart::Escaped(' '),
+                                    LiteralPart::String(Cow::Borrowed("\\ ")),
+                                    LiteralPart::Escaped('\\'),
                                     LiteralPart::String(Cow::Borrowed("#l ")),
                                     LiteralPart::LineContinuation,
                                     LiteralPart::String(Cow::Borrowed(
@@ -805,7 +824,7 @@ MESON_AFTER__AMD64=" \
                     }),
                     Word::Literal(vec![
                         LiteralPart::String(Cow::Borrowed(" b")),
-                        LiteralPart::Escaped(' '),
+                        LiteralPart::String(Cow::Borrowed("\\ ")),
                         LiteralPart::String(Cow::Borrowed("#l ")),
                         LiteralPart::LineContinuation,
                         LiteralPart::String(Cow::Borrowed("c"))
@@ -829,7 +848,7 @@ MESON_AFTER__AMD64=" \
             )
         );
         assert_eq!(
-            variable_value("(a \"${#a} b\\ #l \\\nc\"\n)\n").unwrap(),
+            variable_value("(a \"${#a} b\\ \\\\#l \\\nc\"\n)\n").unwrap(),
             (
                 "\n",
                 VariableValue::Array(vec![
@@ -844,7 +863,8 @@ MESON_AFTER__AMD64=" \
                         }),
                         Word::Literal(vec![
                             LiteralPart::String(Cow::Borrowed(" b")),
-                            LiteralPart::Escaped(' '),
+                            LiteralPart::String(Cow::Borrowed("\\ ")),
+                            LiteralPart::Escaped('\\'),
                             LiteralPart::String(Cow::Borrowed("#l ")),
                             LiteralPart::LineContinuation,
                             LiteralPart::String(Cow::Borrowed("c"))
@@ -984,21 +1004,21 @@ MESON_AFTER__AMD64=" \
     #[test]
     fn test_word() {
         assert_eq!(
-            word("asdf134 a", &|ch| ch != ' ').unwrap(),
+            word("asdf134 a", &|ch| ch != ' ', &anychar).unwrap(),
             (
                 " a",
                 Word::Literal(vec![LiteralPart::String(Cow::Borrowed("asdf134"))])
             )
         );
         assert_eq!(
-            word("asdf134 a", &|_| true).unwrap(),
+            word("asdf134 a", &|_| true, &anychar).unwrap(),
             (
                 "",
                 Word::Literal(vec![LiteralPart::String(Cow::Borrowed("asdf134 a"))])
             )
         );
         assert_eq!(
-            word("asdf\\134\\\n a", &|_| true).unwrap(),
+            word("asdf\\134\\\n a", &|_| true, &anychar).unwrap(),
             (
                 "",
                 Word::Literal(vec![
@@ -1011,11 +1031,25 @@ MESON_AFTER__AMD64=" \
             )
         );
         assert_eq!(
-            word("$123 a", &|ch| ch != ' ').unwrap(),
+            word("asdf\\1\\34\\\n a", &|_| true, &one_of("3")).unwrap(),
+            (
+                "",
+                Word::Literal(vec![
+                    LiteralPart::String(Cow::Borrowed("asdf")),
+                    LiteralPart::String(Cow::Borrowed("\\1")),
+                    LiteralPart::Escaped('3'),
+                    LiteralPart::String(Cow::Borrowed("4")),
+                    LiteralPart::LineContinuation,
+                    LiteralPart::String(Cow::Borrowed(" a")),
+                ])
+            )
+        );
+        assert_eq!(
+            word("$123 a", &|ch| ch != ' ', &anychar).unwrap(),
             (" a", Word::UnbracedVariable(Cow::Borrowed("123")))
         );
         assert_eq!(
-            word("${abc} a", &|ch| ch != ' ').unwrap(),
+            word("${abc} a", &|ch| ch != ' ', &anychar).unwrap(),
             (
                 " a",
                 Word::BracedVariable(BracedExpansion {
@@ -1025,7 +1059,7 @@ MESON_AFTER__AMD64=" \
             )
         );
         assert_eq!(
-            word("${#abc} a", &|ch| ch != ' ').unwrap(),
+            word("${#abc} a", &|ch| ch != ' ', &anychar).unwrap(),
             (
                 " a",
                 Word::BracedVariable(BracedExpansion {
@@ -1034,10 +1068,10 @@ MESON_AFTER__AMD64=" \
                 })
             )
         );
-        word("${#abc:1} a", &|ch| ch != ' ').unwrap_err();
-        word("", &|ch| ch != ' ').unwrap_err();
+        word("${#abc:1} a", &|ch| ch != ' ', &anychar).unwrap_err();
+        word("", &|ch| ch != ' ', &anychar).unwrap_err();
         assert_eq!(
-            word("${abc:1:2} a", &|ch| ch != ' ').unwrap(),
+            word("${abc:1:2} a", &|ch| ch != ' ', &anychar).unwrap(),
             (
                 " a",
                 Word::BracedVariable(BracedExpansion {
@@ -1050,7 +1084,7 @@ MESON_AFTER__AMD64=" \
             )
         );
         assert_eq!(
-            word("${abc#test?} a", &|ch| ch != ' ').unwrap(),
+            word("${abc#test?} a", &|ch| ch != ' ', &anychar).unwrap(),
             (
                 " a",
                 Word::BracedVariable(BracedExpansion {
@@ -1065,7 +1099,7 @@ MESON_AFTER__AMD64=" \
             )
         );
         assert_eq!(
-            word("$(123 ) a", &|ch| ch != ' ').unwrap(),
+            word("$(123 ) a", &|ch| ch != ' ', &anychar).unwrap(),
             (
                 " a",
                 Word::Subcommand(vec![
@@ -1081,23 +1115,27 @@ MESON_AFTER__AMD64=" \
     #[test]
     fn test_literal_part() {
         assert_eq!(
-            literal_part("abc a", &|ch| ch != ' ').unwrap(),
+            literal_part("abc a", &|ch| ch != ' ', &anychar).unwrap(),
             (" a", LiteralPart::String(Cow::Borrowed("abc")))
         );
         assert_eq!(
-            literal_part("abc a", &|_| true).unwrap(),
+            literal_part("abc a", &|_| true, &anychar).unwrap(),
             ("", LiteralPart::String(Cow::Borrowed("abc a")))
         );
         assert_eq!(
-            literal_part("\\na a", &|ch| ch != ' ').unwrap(),
+            literal_part("\\na a", &|ch| ch != ' ', &anychar).unwrap(),
             ("a a", LiteralPart::Escaped('n'))
         );
         assert_eq!(
-            literal_part("\\\na a", &|ch| ch != ' ').unwrap(),
+            literal_part("\\na a", &|ch| ch != ' ', &one_of("1")).unwrap(),
+            ("a a", LiteralPart::String(Cow::Borrowed("\\n")))
+        );
+        assert_eq!(
+            literal_part("\\\na a", &|ch| ch != ' ', &anychar).unwrap(),
             ("a a", LiteralPart::LineContinuation)
         );
         assert_eq!(
-            literal_part("安安本来是只兔子\n a", &|ch| ch != ' ').unwrap(),
+            literal_part("安安本来是只兔子\n a", &|ch| ch != ' ', &anychar).unwrap(),
             (
                 " a",
                 LiteralPart::String(Cow::Borrowed("安安本来是只兔子\n"))
