@@ -7,7 +7,7 @@ use nom::{
     branch::alt,
     bytes::complete::{tag, take_till, take_until1, take_while, take_while1},
     character::complete::{anychar, char, newline},
-    combinator::{map, opt, success, value},
+    combinator::{map, opt, value},
     multi::{many0, many1},
     sequence::{delimited, pair, preceded, separated_pair},
 };
@@ -70,11 +70,9 @@ fn variable_value(i: &str) -> IResult<&str, VariableValue> {
         ),
         // string
         map(
-            |s| text(s, &|ch| ch != ' ' && ch != '#'),
+            |s| text_or_null(s, &|ch| ch != ' ' && ch != '#'),
             |text| VariableValue::String(Rc::new(text)),
         ),
-        // null
-        success(VariableValue::String(Rc::new(Text(vec![])))),
     ))(i)
 }
 
@@ -99,6 +97,14 @@ where
     Cond: Fn(char) -> bool,
 {
     map(many1(|s| text_unit(s, &cond)), Text)(i)
+}
+
+#[inline]
+fn text_or_null<'a, Cond>(i: &'a str, cond: &Cond) -> IResult<&'a str, Text<'a>>
+where
+    Cond: Fn(char) -> bool,
+{
+    map(many0(|s| text_unit(s, &cond)), Text)(i)
 }
 
 #[inline]
@@ -198,7 +204,7 @@ fn expansion_modifier(i: &str) -> IResult<&str, ExpansionModifier> {
     }
     #[inline]
     fn expansion_text(i: &str) -> IResult<&str, Rc<Text>> {
-        map(|s| text(s, &|ch| ch != '}'), Rc::new)(i)
+        map(|s| text_or_null(s, &|ch| ch != '}'), Rc::new)(i)
     }
     alt((
         map(
@@ -353,7 +359,9 @@ K=a"${#a} $ab b\ #l \
 c ${1:1}${1:1: -1}${1##a}${1#a.*[:alpha:]b?\?}${1%%1}${1%1}\
 ${1/a/a}${1//a?a/$a}${1/#a/b}${1/%a/b}${1^*}${1^^*}${1,*}\
 ${1,,*}${1:?err}${1:-unset}${1:+set}${1/a}${1//a}${1/#a}\
-${1/%a}"
+${1/%a}${1//a/}"
+b=("-a" \
+    -b)
 "##;
         assert_eq!(
             apml_ast(src).unwrap(),
@@ -583,10 +591,39 @@ ${1/%a}"
                                         string: None
                                     })
                                 }),
+                                Word::BracedVariable(BracedExpansion {
+                                    name: Cow::Borrowed("1"),
+                                    modifier: Some(ExpansionModifier::ReplaceAll {
+                                        pattern: Rc::new(GlobPattern(vec![GlobPart::String(
+                                            Cow::Borrowed("a")
+                                        )])),
+                                        string: Some(Rc::new(Text(vec![])))
+                                    })
+                                }),
                             ])
                         ])))
                     }),
-                    Token::Newline
+                    Token::Newline,
+                    Token::Variable(VariableDefinition {
+                        name: Cow::Borrowed("b"),
+                        value: VariableValue::Array(vec![
+                            ArrayToken::Element(Rc::new(Text(vec![TextUnit::DuobleQuote(vec![
+                                Word::Literal(vec![LiteralPart::String(Cow::Borrowed("-a"))])
+                            ])]))),
+                            ArrayToken::Spacy(' '),
+                            ArrayToken::Element(Rc::new(Text(vec![TextUnit::Unquoted(vec![
+                                Word::Literal(vec![LiteralPart::LineContinuation])
+                            ])]))),
+                            ArrayToken::Spacy(' '),
+                            ArrayToken::Spacy(' '),
+                            ArrayToken::Spacy(' '),
+                            ArrayToken::Spacy(' '),
+                            ArrayToken::Element(Rc::new(Text(vec![TextUnit::Unquoted(vec![
+                                Word::Literal(vec![LiteralPart::String(Cow::Borrowed("-b"))])
+                            ])])))
+                        ])
+                    }),
+                    Token::Newline,
                 ])
             )
         );
@@ -781,6 +818,7 @@ MESON_AFTER__AMD64=" \
     #[test]
     fn test_text() {
         text("", &|_| true).unwrap_err();
+        assert_eq!(text_or_null("", &|_| true).unwrap(), ("", Text(vec![])));
         assert_eq!(
             text("asd\\f\\\n134$a'test'\"a$a${a}  \" a", &|ch| ch != ' '
                 && ch != '#')
