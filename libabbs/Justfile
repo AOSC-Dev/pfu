@@ -1,7 +1,7 @@
 build-examples:
     cargo build --examples
 
-apml-lex-all-specs tree:
+apml-lex-all-specs tree: build-examples
     #!/usr/bin/bash
     set -euo pipefail
     shopt -s globstar
