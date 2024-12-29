@@ -29,8 +29,7 @@ impl ApmlContext {
     /// Parses a APML source code, expanding variables.
     #[must_use]
     pub fn parse(src: &str) -> std::result::Result<Self, EvalError> {
-        let tree =
-            ApmlParseTree::parse(src).map_err(|err| EvalError::SyntaxError(err.to_string()))?;
+        let tree = ApmlParseTree::parse(src)?;
         Self::eval(&tree)
     }
 

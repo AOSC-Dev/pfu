@@ -28,6 +28,12 @@ pub enum EvalError {
     SyntaxError(String),
 }
 
+impl From<nom::Err<nom::error::Error<&str>>> for EvalError {
+    fn from(value: nom::Err<nom::error::Error<&str>>) -> Self {
+        Self::SyntaxError(value.to_string())
+    }
+}
+
 pub type Result<T> = std::result::Result<T, EvalError>;
 
 pub fn eval_parse_tree(apml: &mut ApmlContext, tree: &ApmlParseTree) -> Result<()> {
