@@ -278,7 +278,7 @@ pub enum ExpansionModifier<'a> {
     StripLongestSuffix(Rc<GlobPattern<'a>>),
     /// Replacing the first match of a pattern with a text (`"/<pattern>[/<string>]"`).
     ///
-    /// As an bash undocumented usage, `string` can be ommitted, leaving `"/<pattern>"` structure,
+    /// `string` can be ommitted, leaving `"/<pattern>"` structure,
     /// which removes the first match of the pattern.
     ReplaceOnce {
         pattern: Rc<GlobPattern<'a>>,
@@ -286,21 +286,21 @@ pub enum ExpansionModifier<'a> {
     },
     /// Replacing the all matches of a pattern with a text (`"//<pattern>[/<string>]"`).
     ///
-    /// As an bash undocumented usage, `string` can be ommitted.
+    /// `string` can be ommitted.
     ReplaceAll {
         pattern: Rc<GlobPattern<'a>>,
         string: Option<Rc<Text<'a>>>,
     },
     /// Replacing the prefix of a pattern with a text (`"/#<pattern>[/<string>]"`).
     ///
-    /// As an bash undocumented usage, `string` can be ommitted.
+    /// `string` can be ommitted.
     ReplacePrefix {
         pattern: Rc<GlobPattern<'a>>,
         string: Option<Rc<Text<'a>>>,
     },
     /// Replacing the suffix of a pattern with a text (`"/%<pattern>[/<string>]"`).
     ///
-    /// As an bash undocumented usage, `string` can be ommitted.
+    /// `string` can be ommitted.
     ReplaceSuffix {
         pattern: Rc<GlobPattern<'a>>,
         string: Option<Rc<Text<'a>>>,
