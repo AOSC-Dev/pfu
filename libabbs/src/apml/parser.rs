@@ -12,7 +12,7 @@ use nom::{
     sequence::{delimited, pair, preceded, separated_pair},
 };
 
-use super::ast::*;
+use super::tree::*;
 
 pub fn apml_ast(i: &str) -> IResult<&str, ApmlAst> {
     map(many0(token), |tokens| ApmlAst(tokens))(i)
@@ -21,8 +21,8 @@ pub fn apml_ast(i: &str) -> IResult<&str, ApmlAst> {
 #[inline]
 pub fn token(i: &str) -> IResult<&str, Token> {
     alt((
-        // space
-        value(Token::Space, char(' ')),
+        // spacy
+        map(alt((char(' '), char('\t'))), Token::Spacy),
         // newline
         value(Token::Newline, newline),
         // comment
@@ -317,7 +317,7 @@ ${1,,*}${1:?err}${1:-unset}${1:+set}"
                             vec![Word::Literal(vec![LiteralPart::String(Cow::Borrowed("b"))])]
                         )])))
                     }),
-                    Token::Space,
+                    Token::Spacy(' '),
                     Token::Comment(Cow::Borrowed(" Inline comment")),
                     Token::Newline,
                     Token::Variable(VariableDefinition {
@@ -522,7 +522,8 @@ MESON_AFTER__AMD64=" \
             token("#\n").unwrap(),
             ("\n", Token::Comment(Cow::Borrowed("")))
         );
-        assert_eq!(token(" ").unwrap(), ("", Token::Space));
+        assert_eq!(token(" ").unwrap(), ("", Token::Spacy(' ')));
+        assert_eq!(token("\t").unwrap(), ("", Token::Spacy('\t')));
         assert_eq!(token("\n").unwrap(), ("", Token::Newline));
         assert_eq!(
             token("a=\n").unwrap(),

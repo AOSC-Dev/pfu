@@ -2,7 +2,7 @@
 
 use std::{collections::HashMap, ops::Range};
 
-pub mod ast;
+pub mod tree;
 pub mod parser;
 
 /// A parsed APML file.

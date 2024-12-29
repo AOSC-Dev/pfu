@@ -1,4 +1,4 @@
-//! APML AST.
+//! APML parse-tree.
 //!
 //! This AST structure is designed to correspond byte by byte
 //! to the source file in order to obtain a complete reverse
@@ -6,7 +6,7 @@
 
 use std::{borrow::Cow, rc::Rc};
 
-/// A APML abstract-syntax-tree, consisting of a list of tokens.
+/// A APML parse-tree, consisting of a list of tokens.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ApmlAst<'a>(pub Vec<Token<'a>>);
 
@@ -23,8 +23,12 @@ impl ToString for ApmlAst<'_> {
 /// A token in the AST.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Token<'a> {
-    /// A space character (`' '`, ASCII code 0x20).
-    Space,
+    /// A space-like character (`'<char>'`).
+    /// 
+    /// This currently includes:
+    /// - Space (`' '`)
+    /// - Tab (`'\t'`)
+    Spacy(char),
     /// A newline character (`'\n'`, ASCII code 0x0A).
     Newline,
     /// A comment (`"#<text>"`).
@@ -36,7 +40,7 @@ pub enum Token<'a> {
 impl ToString for Token<'_> {
     fn to_string(&self) -> String {
         match self {
-            Token::Space => " ".to_string(),
+            Token::Spacy(ch) => ch.to_string(),
             Token::Newline => "\n".to_string(),
             Token::Comment(text) => format!("#{}", text),
             Token::Variable(def) => def.to_string(),
