@@ -22,7 +22,7 @@ pub fn apml_ast(i: &str) -> IResult<&str, ApmlParseTree> {
 fn token(i: &str) -> IResult<&str, Token> {
     alt((
         // spacy
-        map(alt((char(' '), char('\t'))), Token::Spacy),
+        map(spacy_char, Token::Spacy),
         // newline
         value(Token::Newline, newline),
         // comment
@@ -30,6 +30,11 @@ fn token(i: &str) -> IResult<&str, Token> {
         // variable definition
         variable_def.map(|def| Token::Variable(def)),
     ))(i)
+}
+
+#[inline]
+fn spacy_char(i: &str) -> IResult<&str, char> {
+    alt((char(' '), char('\t')))(i)
 }
 
 #[inline]
@@ -602,6 +607,14 @@ MESON_AFTER__AMD64=" \
                 })
             )
         );
+    }
+
+    #[test]
+    fn test_spacy_char() {
+        assert_eq!(spacy_char(" ").unwrap(), ("", ' '));
+        assert_eq!(spacy_char("\t").unwrap(), ("", '\t'));
+        assert_eq!(spacy_char("\ta").unwrap(), ("a", '\t'));
+        spacy_char("\n").unwrap_err();
     }
 
     #[test]
