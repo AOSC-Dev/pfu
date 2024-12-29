@@ -1,0 +1,11 @@
+build-examples:
+    cargo build --examples
+
+apml-lex-all-specs tree:
+    #!/usr/bin/bash
+    set -euo pipefail
+    shopt -s globstar
+    for file in "{{tree}}"/**/spec; do
+        echo "$file"
+        QUIET=y ../target/debug/examples/apml-lex "$file"
+    done
