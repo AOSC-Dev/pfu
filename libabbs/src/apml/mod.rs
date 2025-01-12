@@ -1,4 +1,4 @@
-//! ACBS Package Metadata Language (APML) parsers.
+//! ACBS Package Metadata Language (APML) syntax tree and parsers.
 
 use std::{collections::HashMap, ops::Add};
 

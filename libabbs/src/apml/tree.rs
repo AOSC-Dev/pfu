@@ -1,7 +1,7 @@
-//! APML parse-tree.
+//! APML lossless syntax tree.
 //!
-//! This AST structure is designed to correspond byte by byte
-//! to the source file in order to obtain a complete reverse
+//! This syntax tree is designed to correspond byte by byte
+//! to the source file in order to obtain a lossless reverse
 //! conversion capability to the source file.
 
 use std::{borrow::Cow, rc::Rc};

@@ -1,4 +1,4 @@
-//! Parser to convert string source to AST.
+//! Parser combinators to parse APML source to lossless syntax tree.
 
 use std::{borrow::Cow, rc::Rc};
 
