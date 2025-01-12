@@ -3,7 +3,7 @@
 use std::{borrow::Cow, rc::Rc};
 
 use nom::{
-    IResult, Parser,
+    IResult,
     branch::alt,
     bytes::complete::{tag, take, take_till, take_while, take_while1},
     character::complete::{anychar, char, newline, one_of},
@@ -17,7 +17,7 @@ use crate::apml::glob::{GlobPattern, glob_pattern};
 use super::tree::*;
 
 pub fn apml_ast(i: &str) -> IResult<&str, ApmlParseTree> {
-    map(many0(token), |tokens| ApmlParseTree(tokens))(i)
+    map(many0(token), ApmlParseTree)(i)
 }
 
 #[inline]
@@ -30,7 +30,7 @@ fn token(i: &str) -> IResult<&str, Token> {
         // comment
         comment_token,
         // variable definition
-        variable_def.map(|def| Token::Variable(def)),
+        map(variable_def, Token::Variable),
     ))(i)
 }
 
@@ -178,9 +178,7 @@ where
             Word::Subcommand,
         ),
         // literal
-        map(many1(|s| literal_part(s, cond, escape_cond)), |parts| {
-            Word::Literal(parts)
-        }),
+        map(many1(|s| literal_part(s, cond, escape_cond)), Word::Literal),
     ))(i)
 }
 

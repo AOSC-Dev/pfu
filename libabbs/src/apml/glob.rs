@@ -1,6 +1,9 @@
 //! Bash pattern matching.
 
-use std::borrow::Cow;
+use std::{
+    borrow::Cow,
+    fmt::{Display, Write},
+};
 
 use nom::{
     IResult,
@@ -17,13 +20,12 @@ use regex::{Regex, RegexBuilder};
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct GlobPattern<'a>(pub Vec<GlobPart<'a>>);
 
-impl ToString for GlobPattern<'_> {
-    fn to_string(&self) -> String {
-        self.0
-            .iter()
-            .map(|part| part.to_string())
-            .collect::<Vec<_>>()
-            .join("")
+impl Display for GlobPattern<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for part in &self.0 {
+            Display::fmt(part, f)?;
+        }
+        Ok(())
     }
 }
 
@@ -52,19 +54,23 @@ pub enum GlobPart<'a> {
     Not(PatternList<'a>),
 }
 
-impl ToString for GlobPart<'_> {
-    fn to_string(&self) -> String {
+impl Display for GlobPart<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            GlobPart::String(text) => text.to_string(),
-            GlobPart::Escaped(ch) => format!("\\{}", ch),
-            GlobPart::AnyString => "*".to_string(),
-            GlobPart::AnyChar => "?".to_string(),
-            GlobPart::Range(range) => format!("[{}]", range),
-            GlobPart::ZeroOrOneOf(list) => format!("?({})", list.to_string()),
-            GlobPart::ZeroOrMoreOf(list) => format!("*({})", list.to_string()),
-            GlobPart::OneOrMoreOf(list) => format!("+({})", list.to_string()),
-            GlobPart::OneOf(list) => format!("@({})", list.to_string()),
-            GlobPart::Not(list) => format!("!({})", list.to_string()),
+            GlobPart::String(text) => f.write_str(text),
+            GlobPart::Escaped(ch) => {
+                f.write_char('\\')?;
+                f.write_char(*ch)?;
+                Ok(())
+            }
+            GlobPart::AnyString => f.write_char('*'),
+            GlobPart::AnyChar => f.write_char('?'),
+            GlobPart::Range(range) => f.write_fmt(format_args!("[{}]", range)),
+            GlobPart::ZeroOrOneOf(list) => f.write_fmt(format_args!("?({})", list)),
+            GlobPart::ZeroOrMoreOf(list) => f.write_fmt(format_args!("*({})", list)),
+            GlobPart::OneOrMoreOf(list) => f.write_fmt(format_args!("+({})", list)),
+            GlobPart::OneOf(list) => f.write_fmt(format_args!("@({})", list)),
+            GlobPart::Not(list) => f.write_fmt(format_args!("!({})", list)),
         }
     }
 }
@@ -73,13 +79,15 @@ impl ToString for GlobPart<'_> {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct PatternList<'a>(pub Vec<GlobPattern<'a>>);
 
-impl ToString for PatternList<'_> {
-    fn to_string(&self) -> String {
-        self.0
-            .iter()
-            .map(GlobPattern::to_string)
-            .collect::<Vec<_>>()
-            .join("|")
+impl Display for PatternList<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for (idx, pattern) in (1..).zip(&self.0) {
+            if idx != 1 {
+                f.write_char('|')?;
+            }
+            Display::fmt(pattern, f)?;
+        }
+        Ok(())
     }
 }
 
@@ -99,16 +107,16 @@ impl GlobPattern<'_> {
                 GlobPart::Range(_) => todo!(),
                 GlobPart::ZeroOrOneOf(list) => {
                     list.build_regex(result, greedy);
-                    result.push_str("?");
+                    result.push('?');
                 }
                 GlobPart::ZeroOrMoreOf(list) => {
                     list.build_regex(result, greedy);
-                    result.push_str("*");
+                    result.push('*');
                     result.push_str(lazy_flag);
                 }
                 GlobPart::OneOrMoreOf(list) => {
                     list.build_regex(result, greedy);
-                    result.push_str("+");
+                    result.push('+');
                     result.push_str(lazy_flag);
                 }
                 GlobPart::OneOf(list) => {
@@ -204,7 +212,7 @@ fn glob_part<'a>(i: &'a str, exclude: &'static str) -> IResult<&'a str, GlobPart
 }
 
 #[inline]
-fn pattern_list<'a>(i: &'a str) -> IResult<&'a str, PatternList<'a>> {
+fn pattern_list(i: &str) -> IResult<&str, PatternList> {
     map(
         many0(terminated(|i| glob_pattern(i, "|)"), opt(char('|')))),
         PatternList,

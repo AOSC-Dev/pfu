@@ -4,7 +4,11 @@
 //! to the source file in order to obtain a lossless reverse
 //! conversion capability to the source file.
 
-use std::{borrow::Cow, rc::Rc};
+use std::{
+    borrow::Cow,
+    fmt::{Debug, Display, Write},
+    rc::Rc,
+};
 
 use super::glob::GlobPattern;
 
@@ -12,21 +16,20 @@ use super::glob::GlobPattern;
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ApmlParseTree<'a>(pub Vec<Token<'a>>);
 
-impl ToString for ApmlParseTree<'_> {
-    fn to_string(&self) -> String {
-        self.0
-            .iter()
-            .map(|token| token.to_string())
-            .collect::<Vec<_>>()
-            .join("")
+impl Display for ApmlParseTree<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for token in &self.0 {
+            Display::fmt(token, f)?;
+        }
+        Ok(())
     }
 }
 
 impl<'a> ApmlParseTree<'a> {
-    #[must_use]
+    /// Parses a APML source string into lossless syntax tree.
     pub fn parse(src: &'a str) -> Result<Self, nom::Err<nom::error::Error<&'a str>>> {
         let (src, tree) = super::parser::apml_ast(src)?;
-        if src.len() != 0 {
+        if !src.is_empty() {
             return Err(nom::Err::Failure(nom::error::make_error(
                 src,
                 nom::error::ErrorKind::Fail,
@@ -53,13 +56,13 @@ pub enum Token<'a> {
     Variable(VariableDefinition<'a>),
 }
 
-impl ToString for Token<'_> {
-    fn to_string(&self) -> String {
+impl Display for Token<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Token::Spacy(ch) => ch.to_string(),
-            Token::Newline => "\n".to_string(),
-            Token::Comment(text) => format!("#{}", text),
-            Token::Variable(def) => def.to_string(),
+            Token::Spacy(ch) => f.write_char(*ch),
+            Token::Newline => f.write_char('\n'),
+            Token::Comment(text) => f.write_fmt(format_args!("#{}", text)),
+            Token::Variable(def) => Display::fmt(def, f),
         }
     }
 }
@@ -75,14 +78,12 @@ pub struct VariableDefinition<'a> {
     pub value: VariableValue<'a>,
 }
 
-impl ToString for VariableDefinition<'_> {
-    fn to_string(&self) -> String {
-        format!(
-            "{}{}{}",
-            self.name,
-            self.op.to_string(),
-            self.value.to_string()
-        )
+impl Display for VariableDefinition<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.name)?;
+        Display::fmt(&self.op, f)?;
+        Display::fmt(&self.value, f)?;
+        Ok(())
     }
 }
 
@@ -95,11 +96,11 @@ pub enum VariableOp {
     Append,
 }
 
-impl ToString for VariableOp {
-    fn to_string(&self) -> String {
+impl Display for VariableOp {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            VariableOp::Assignment => "=".to_string(),
-            VariableOp::Append => "+=".to_string(),
+            VariableOp::Assignment => f.write_char('='),
+            VariableOp::Append => f.write_str("+="),
         }
     }
 }
@@ -113,18 +114,18 @@ pub enum VariableValue<'a> {
     Array(Vec<ArrayToken<'a>>),
 }
 
-impl ToString for VariableValue<'_> {
-    fn to_string(&self) -> String {
+impl Display for VariableValue<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            VariableValue::String(text) => text.to_string(),
-            VariableValue::Array(tokens) => format!(
-                "({})",
-                tokens
-                    .iter()
-                    .map(|token| token.to_string())
-                    .collect::<Vec<_>>()
-                    .join("")
-            ),
+            VariableValue::String(text) => Display::fmt(text, f),
+            VariableValue::Array(tokens) => {
+                f.write_char('(')?;
+                for token in tokens {
+                    Display::fmt(token, f)?;
+                }
+                f.write_char(')')?;
+                Ok(())
+            }
         }
     }
 }
@@ -138,13 +139,12 @@ impl ToString for VariableValue<'_> {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Text<'a>(pub Vec<TextUnit<'a>>);
 
-impl ToString for Text<'_> {
-    fn to_string(&self) -> String {
-        self.0
-            .iter()
-            .map(|unit| unit.to_string())
-            .collect::<Vec<_>>()
-            .join("")
+impl Display for Text<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for unit in &self.0 {
+            Display::fmt(unit, f)?;
+        }
+        Ok(())
     }
 }
 
@@ -161,23 +161,24 @@ pub enum TextUnit<'a> {
     DuobleQuote(Vec<Word<'a>>),
 }
 
-impl ToString for TextUnit<'_> {
-    fn to_string(&self) -> String {
+impl Display for TextUnit<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            TextUnit::Unquoted(words) => words
-                .iter()
-                .map(|word| word.to_string())
-                .collect::<Vec<_>>()
-                .join(""),
-            TextUnit::SingleQuote(text) => format!("'{}'", text),
-            TextUnit::DuobleQuote(words) => format!(
-                "\"{}\"",
-                words
-                    .iter()
-                    .map(|word| word.to_string())
-                    .collect::<Vec<_>>()
-                    .join("")
-            ),
+            TextUnit::Unquoted(words) => {
+                for word in words {
+                    Display::fmt(word, f)?;
+                }
+                Ok(())
+            }
+            TextUnit::SingleQuote(text) => f.write_fmt(format_args!("'{}'", text)),
+            TextUnit::DuobleQuote(words) => {
+                f.write_char('"')?;
+                for word in words {
+                    Display::fmt(word, f)?;
+                }
+                f.write_char('"')?;
+                Ok(())
+            }
         }
     }
 }
@@ -195,24 +196,25 @@ pub enum Word<'a> {
     Subcommand(Vec<ArrayToken<'a>>),
 }
 
-impl ToString for Word<'_> {
-    fn to_string(&self) -> String {
+impl Display for Word<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Word::Literal(parts) => parts
-                .iter()
-                .map(|part| part.to_string())
-                .collect::<Vec<_>>()
-                .join(""),
-            Word::UnbracedVariable(name) => format!("${}", name),
-            Word::BracedVariable(exp) => format!("${{{}}}", exp.to_string()),
-            Word::Subcommand(tokens) => format!(
-                "$({})",
-                tokens
-                    .iter()
-                    .map(|token| token.to_string())
-                    .collect::<Vec<_>>()
-                    .join(""),
-            ),
+            Word::Literal(parts) => {
+                for part in parts {
+                    Display::fmt(part, f)?;
+                }
+                Ok(())
+            }
+            Word::UnbracedVariable(name) => f.write_fmt(format_args!("${}", name)),
+            Word::BracedVariable(exp) => f.write_fmt(format_args!("${{{}}}", exp)),
+            Word::Subcommand(tokens) => {
+                f.write_str("$(")?;
+                for token in tokens {
+                    Display::fmt(token, f)?;
+                }
+                f.write_str(")")?;
+                Ok(())
+            }
         }
     }
 }
@@ -228,12 +230,12 @@ pub enum LiteralPart<'a> {
     LineContinuation,
 }
 
-impl ToString for LiteralPart<'_> {
-    fn to_string(&self) -> String {
+impl Display for LiteralPart<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            LiteralPart::String(text) => text.to_string(),
-            LiteralPart::Escaped(ch) => format!("\\{}", ch),
-            LiteralPart::LineContinuation => "\\\n".to_string(),
+            LiteralPart::String(text) => f.write_str(text),
+            LiteralPart::Escaped(ch) => f.write_fmt(format_args!("\\{}", ch)),
+            LiteralPart::LineContinuation => f.write_str("\\\n"),
         }
     }
 }
@@ -249,12 +251,12 @@ pub struct BracedExpansion<'a> {
     pub modifier: Option<ExpansionModifier<'a>>,
 }
 
-impl ToString for BracedExpansion<'_> {
-    fn to_string(&self) -> String {
+impl Display for BracedExpansion<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.modifier {
-            Some(ExpansionModifier::Length) => format!("#{}", self.name),
-            None => self.name.to_string(),
-            Some(modifier) => format!("{}{}", self.name, modifier.to_string()),
+            Some(ExpansionModifier::Length) => f.write_fmt(format_args!("#{}", self.name)),
+            None => f.write_str(&self.name),
+            Some(modifier) => f.write_fmt(format_args!("{}{}", self.name, modifier)),
         }
     }
 }
@@ -332,43 +334,51 @@ pub enum ExpansionModifier<'a> {
     SingleWordElements,
 }
 
-impl ToString for ExpansionModifier<'_> {
-    fn to_string(&self) -> String {
+impl Display for ExpansionModifier<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             ExpansionModifier::Substring { offset, length } => match length {
-                None => format!(":{}", offset),
-                Some(length) => format!(":{}:{}", offset, length),
+                None => f.write_fmt(format_args!(":{}", offset)),
+                Some(length) => f.write_fmt(format_args!(":{}:{}", offset, length)),
             },
-            ExpansionModifier::StripShortestPrefix(pattern) => format!("#{}", pattern.to_string()),
-            ExpansionModifier::StripLongestPrefix(pattern) => format!("##{}", pattern.to_string()),
-            ExpansionModifier::StripShortestSuffix(pattern) => format!("%{}", pattern.to_string()),
-            ExpansionModifier::StripLongestSuffix(pattern) => format!("%%{}", pattern.to_string()),
+            ExpansionModifier::StripShortestPrefix(pattern) => {
+                f.write_fmt(format_args!("#{}", pattern))
+            }
+            ExpansionModifier::StripLongestPrefix(pattern) => {
+                f.write_fmt(format_args!("##{}", pattern))
+            }
+            ExpansionModifier::StripShortestSuffix(pattern) => {
+                f.write_fmt(format_args!("%{}", pattern))
+            }
+            ExpansionModifier::StripLongestSuffix(pattern) => {
+                f.write_fmt(format_args!("%%{}", pattern))
+            }
             ExpansionModifier::ReplaceOnce { pattern, string } => match string {
-                Some(string) => format!("/{}/{}", pattern.to_string(), string.to_string()),
-                None => format!("/{}", pattern.to_string()),
+                Some(string) => f.write_fmt(format_args!("/{}/{}", pattern, string)),
+                None => f.write_fmt(format_args!("/{}", pattern)),
             },
             ExpansionModifier::ReplaceAll { pattern, string } => match string {
-                Some(string) => format!("//{}/{}", pattern.to_string(), string.to_string()),
-                None => format!("//{}", pattern.to_string()),
+                Some(string) => f.write_fmt(format_args!("//{}/{}", pattern, string)),
+                None => f.write_fmt(format_args!("//{}", pattern)),
             },
             ExpansionModifier::ReplacePrefix { pattern, string } => match string {
-                Some(string) => format!("/#{}/{}", pattern.to_string(), string.to_string()),
-                None => format!("/#{}", pattern.to_string()),
+                Some(string) => f.write_fmt(format_args!("/#{}/{}", pattern, string)),
+                None => f.write_fmt(format_args!("/#{}", pattern)),
             },
             ExpansionModifier::ReplaceSuffix { pattern, string } => match string {
-                Some(string) => format!("/%{}/{}", pattern.to_string(), string.to_string()),
-                None => format!("/%{}", pattern.to_string()),
+                Some(string) => f.write_fmt(format_args!("/%{}/{}", pattern, string)),
+                None => f.write_fmt(format_args!("/%{}", pattern)),
             },
-            ExpansionModifier::UpperOnce(pattern) => format!("^{}", pattern.to_string()),
-            ExpansionModifier::UpperAll(pattern) => format!("^^{}", pattern.to_string()),
-            ExpansionModifier::LowerOnce(pattern) => format!(",{}", pattern.to_string()),
-            ExpansionModifier::LowerAll(pattern) => format!(",,{}", pattern.to_string()),
-            ExpansionModifier::ErrorOnUnset(text) => format!(":?{}", text.to_string()),
+            ExpansionModifier::UpperOnce(pattern) => f.write_fmt(format_args!("^{}", pattern)),
+            ExpansionModifier::UpperAll(pattern) => f.write_fmt(format_args!("^^{}", pattern)),
+            ExpansionModifier::LowerOnce(pattern) => f.write_fmt(format_args!(",{}", pattern)),
+            ExpansionModifier::LowerAll(pattern) => f.write_fmt(format_args!(",,{}", pattern)),
+            ExpansionModifier::ErrorOnUnset(text) => f.write_fmt(format_args!(":?{}", text)),
             ExpansionModifier::Length => unreachable!(),
-            ExpansionModifier::WhenUnset(text) => format!(":-{}", text.to_string()),
-            ExpansionModifier::WhenSet(text) => format!(":+{}", text.to_string()),
-            ExpansionModifier::ArrayElements => "[@]".to_string(),
-            ExpansionModifier::SingleWordElements => "[*]".to_string(),
+            ExpansionModifier::WhenUnset(text) => f.write_fmt(format_args!(":-{}", text)),
+            ExpansionModifier::WhenSet(text) => f.write_fmt(format_args!(":+{}", text)),
+            ExpansionModifier::ArrayElements => f.write_str("[@]"),
+            ExpansionModifier::SingleWordElements => f.write_str("[*]"),
         }
     }
 }
@@ -388,13 +398,17 @@ pub enum ArrayToken<'a> {
     Element(Rc<Text<'a>>),
 }
 
-impl ToString for ArrayToken<'_> {
-    fn to_string(&self) -> String {
+impl Display for ArrayToken<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ArrayToken::Spacy(ch) => ch.to_string(),
-            ArrayToken::Newline => '\n'.to_string(),
-            ArrayToken::Comment(text) => format!("#{}", text),
-            ArrayToken::Element(text) => text.to_string(),
+            ArrayToken::Spacy(ch) => f.write_char(*ch),
+            ArrayToken::Newline => f.write_char('\n'),
+            ArrayToken::Comment(text) => {
+                f.write_char('#')?;
+                f.write_str(text)?;
+                Ok(())
+            }
+            ArrayToken::Element(text) => Display::fmt(text, f),
         }
     }
 }

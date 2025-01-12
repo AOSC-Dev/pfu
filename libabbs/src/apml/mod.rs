@@ -6,8 +6,8 @@ use eval::EvalError;
 use tree::ApmlParseTree;
 
 pub mod eval;
-pub mod parser;
 pub mod glob;
+pub mod parser;
 pub mod tree;
 
 /// A evaluated APML context.
@@ -18,7 +18,6 @@ pub struct ApmlContext {
 
 impl ApmlContext {
     /// Evaluates a APML source code, expanding variables.
-    #[must_use]
     pub fn eval(tree: &ApmlParseTree) -> std::result::Result<Self, EvalError> {
         let mut apml = ApmlContext {
             variables: HashMap::new(),
@@ -28,7 +27,6 @@ impl ApmlContext {
     }
 
     /// Parses a APML source code, expanding variables.
-    #[must_use]
     pub fn parse(src: &str) -> std::result::Result<Self, EvalError> {
         let tree = ApmlParseTree::parse(src)?;
         Self::eval(&tree)
@@ -149,7 +147,7 @@ impl VariableValue {
 
     /// Returns if the value is empty.
     #[must_use]
-    pub fn is_null(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         match self {
             VariableValue::String(text) => text.is_empty(),
             VariableValue::Array(els) => els.is_empty(),

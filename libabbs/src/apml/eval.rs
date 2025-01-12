@@ -129,7 +129,7 @@ pub fn eval_text(apml: &ApmlContext, text: &Text) -> Result<String> {
                     result.push_str(&eval_word(apml, word)?);
                 }
             }
-            TextUnit::SingleQuote(text) => result.push_str(&text),
+            TextUnit::SingleQuote(text) => result.push_str(text),
         }
     }
     Ok(result)
@@ -213,7 +213,7 @@ fn apply_expansion_modifier(
                 .to_string()),
             Some(text) => Ok(pattern
                 .to_regex("", "", true)?
-                .replace(&value.into_string(), &eval_text(apml, &text)?)
+                .replace(&value.into_string(), &eval_text(apml, text)?)
                 .to_string()),
         },
         ExpansionModifier::ReplaceAll { pattern, string } => match string {
@@ -223,7 +223,7 @@ fn apply_expansion_modifier(
                 .to_string()),
             Some(text) => Ok(pattern
                 .to_regex("", "", true)?
-                .replace_all(&value.into_string(), &eval_text(apml, &text)?)
+                .replace_all(&value.into_string(), &eval_text(apml, text)?)
                 .to_string()),
         },
         ExpansionModifier::ReplacePrefix { pattern, string } => match string {
@@ -233,7 +233,7 @@ fn apply_expansion_modifier(
                 .to_string()),
             Some(text) => Ok(pattern
                 .to_regex("^", "", true)?
-                .replace_all(&value.into_string(), &eval_text(apml, &text)?)
+                .replace_all(&value.into_string(), &eval_text(apml, text)?)
                 .to_string()),
         },
         ExpansionModifier::ReplaceSuffix { pattern, string } => match string {
@@ -243,7 +243,7 @@ fn apply_expansion_modifier(
                 .to_string()),
             Some(text) => Ok(pattern
                 .to_regex("", "$", true)?
-                .replace_all(&value.into_string(), &eval_text(apml, &text)?)
+                .replace_all(&value.into_string(), &eval_text(apml, text)?)
                 .to_string()),
         },
         ExpansionModifier::UpperOnce(pattern) => Ok(pattern
@@ -263,7 +263,7 @@ fn apply_expansion_modifier(
             .replace_all(&value.into_string(), LowercaseReplacer)
             .to_string()),
         ExpansionModifier::ErrorOnUnset(text) => {
-            if value.is_null() {
+            if value.is_empty() {
                 Err(EvalError::Unset(eval_text(apml, text)?))
             } else {
                 Ok(value.into_string())
@@ -271,14 +271,14 @@ fn apply_expansion_modifier(
         }
         ExpansionModifier::Length => Ok(value.len().to_string()),
         ExpansionModifier::WhenUnset(text) => {
-            if value.is_null() {
+            if value.is_empty() {
                 eval_text(apml, text)
             } else {
                 Ok(value.into_string())
             }
         }
         ExpansionModifier::WhenSet(text) => {
-            if !value.is_null() {
+            if !value.is_empty() {
                 eval_text(apml, text)
             } else {
                 Ok(value.into_string())
