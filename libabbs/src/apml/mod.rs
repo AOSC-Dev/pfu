@@ -7,6 +7,7 @@ use tree::ApmlParseTree;
 
 pub mod eval;
 pub mod parser;
+pub mod glob;
 pub mod tree;
 
 /// A evaluated APML context.

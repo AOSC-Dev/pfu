@@ -5,12 +5,14 @@ use std::{borrow::Cow, rc::Rc};
 use nom::{
     IResult, Parser,
     branch::alt,
-    bytes::complete::{tag, take, take_till, take_until1, take_while, take_while1},
+    bytes::complete::{tag, take, take_till, take_while, take_while1},
     character::complete::{anychar, char, newline, one_of},
     combinator::{map, opt, recognize, value},
     multi::{many0, many1},
     sequence::{delimited, pair, preceded, tuple},
 };
+
+use crate::apml::glob::{GlobPattern, glob_pattern};
 
 use super::tree::*;
 
@@ -355,37 +357,12 @@ fn substring_expansion_modifier(i: &str) -> IResult<&str, ExpansionModifier> {
     )(i)
 }
 
-#[inline]
-fn glob_pattern<'a>(i: &'a str, exclude: &'static str) -> IResult<&'a str, GlobPattern<'a>> {
-    map(many1(|s| glob_part(s, exclude)), |tokens| {
-        GlobPattern(tokens)
-    })(i)
-}
-
-#[inline]
-fn glob_part<'a>(i: &'a str, exclude: &'static str) -> IResult<&'a str, GlobPart<'a>> {
-    alt((
-        // escaped
-        map(preceded(char('\\'), anychar), GlobPart::Escaped),
-        // any string
-        value(GlobPart::AnyString, char('*')),
-        // any char
-        value(GlobPart::AnyChar, char('?')),
-        // range
-        map(delimited(char('['), take_until1("]"), char(']')), |range| {
-            GlobPart::Range(Cow::Borrowed(range))
-        }),
-        // literal
-        map(
-            take_while1(|ch| !"[*?\\".contains(ch) && !exclude.contains(ch)),
-            |s| GlobPart::String(Cow::Borrowed(s)),
-        ),
-    ))(i)
-}
-
 #[cfg(test)]
 mod test {
-    use crate::apml::parser::*;
+    use crate::apml::{
+        glob::{GlobPart, GlobPattern},
+        parser::*,
+    };
 
     #[test]
     fn test_ast() {
@@ -1445,37 +1422,5 @@ MESON_AFTER__AMD64=" \
         );
         substring_expansion_modifier(":").unwrap_err();
         substring_expansion_modifier("1").unwrap_err();
-    }
-
-    #[test]
-    fn test_glob_pattern() {
-        assert_eq!(
-            glob_pattern("abc*?\\a[:ascii:]a}a", "}").unwrap(),
-            (
-                "}a",
-                GlobPattern(vec![
-                    GlobPart::String(Cow::Borrowed("abc")),
-                    GlobPart::AnyString,
-                    GlobPart::AnyChar,
-                    GlobPart::Escaped('a'),
-                    GlobPart::Range(Cow::Borrowed(":ascii:")),
-                    GlobPart::String(Cow::Borrowed("a")),
-                ])
-            )
-        );
-    }
-
-    #[test]
-    fn test_glob_part() {
-        assert_eq!(
-            glob_part("abc*", "").unwrap(),
-            ("*", GlobPart::String(Cow::Borrowed("abc")))
-        );
-        assert_eq!(glob_part("*", "").unwrap(), ("", GlobPart::AnyString));
-        assert_eq!(glob_part("?a", "").unwrap(), ("a", GlobPart::AnyChar));
-        assert_eq!(
-            glob_part("abcd", "c").unwrap(),
-            ("cd", GlobPart::String(Cow::Borrowed("ab")))
-        );
     }
 }

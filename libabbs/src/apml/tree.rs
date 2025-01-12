@@ -6,6 +6,8 @@
 
 use std::{borrow::Cow, rc::Rc};
 
+use super::glob::GlobPattern;
+
 /// A APML parse-tree, consisting of a list of tokens.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ApmlParseTree<'a>(pub Vec<Token<'a>>);
@@ -367,46 +369,6 @@ impl ToString for ExpansionModifier<'_> {
             ExpansionModifier::WhenSet(text) => format!(":+{}", text.to_string()),
             ExpansionModifier::ArrayElements => "[@]".to_string(),
             ExpansionModifier::SingleWordElements => "[*]".to_string(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct GlobPattern<'a>(pub Vec<GlobPart<'a>>);
-
-impl ToString for GlobPattern<'_> {
-    fn to_string(&self) -> String {
-        self.0
-            .iter()
-            .map(|part| part.to_string())
-            .collect::<Vec<_>>()
-            .join("")
-    }
-}
-
-/// A element of glob patterns.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum GlobPart<'a> {
-    /// Matches a fixed string (`"<text>"`).
-    String(Cow<'a, str>),
-    /// Matches an escaped character (`"\\<char>"`).
-    Escaped(char),
-    /// Matches any string (`'*'`).
-    AnyString,
-    /// Matches any single character (`'?'`).
-    AnyChar,
-    /// Matches a characters range (`"[<range>]"`).
-    Range(Cow<'a, str>),
-}
-
-impl ToString for GlobPart<'_> {
-    fn to_string(&self) -> String {
-        match self {
-            GlobPart::String(text) => text.to_string(),
-            GlobPart::Escaped(ch) => format!("\\{}", ch),
-            GlobPart::AnyString => "*".to_string(),
-            GlobPart::AnyChar => "?".to_string(),
-            GlobPart::Range(range) => format!("[{}]", range),
         }
     }
 }

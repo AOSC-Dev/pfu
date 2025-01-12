@@ -5,14 +5,13 @@ use std::{
     num::ParseIntError,
 };
 
-use regex::{Regex, RegexBuilder};
 use thiserror::Error;
 
 use super::{
     ApmlContext,
     tree::{
-        ApmlParseTree, ArrayToken, ExpansionModifier, GlobPart, GlobPattern, LiteralPart, Text,
-        TextUnit, Token, VariableDefinition, VariableOp, VariableValue, Word,
+        ApmlParseTree, ArrayToken, ExpansionModifier, LiteralPart, Text, TextUnit, Token,
+        VariableDefinition, VariableOp, VariableValue, Word,
     },
 };
 
@@ -191,68 +190,76 @@ fn apply_expansion_modifier(
                 Ok(value[offset..].to_string())
             }
         }
-        ExpansionModifier::StripShortestPrefix(pattern) => {
-            Ok(glob_to_regex(pattern, "^(?:", ")?(.*)$", false)?
-                .replace(&value.into_string(), MatchReplacer(2))
-                .to_string())
-        }
-        ExpansionModifier::StripLongestPrefix(pattern) => {
-            Ok(glob_to_regex(pattern, "^(?:", ")?(.*?)$", true)?
-                .replace(&value.into_string(), MatchReplacer(2))
-                .to_string())
-        }
-        ExpansionModifier::StripShortestSuffix(pattern) => {
-            Ok(glob_to_regex(pattern, "^(.*)(?:", ")$", false)?
-                .replace(&value.into_string(), MatchReplacer(1))
-                .to_string())
-        }
-        ExpansionModifier::StripLongestSuffix(pattern) => {
-            Ok(glob_to_regex(pattern, "^(.*?)(?:", ")$", true)?
-                .replace(&value.into_string(), MatchReplacer(1))
-                .to_string())
-        }
+        ExpansionModifier::StripShortestPrefix(pattern) => Ok(pattern
+            .to_regex("^(?:", ")?(.*)$", false)?
+            .replace(&value.into_string(), MatchReplacer(2))
+            .to_string()),
+        ExpansionModifier::StripLongestPrefix(pattern) => Ok(pattern
+            .to_regex("^(?:", ")?(.*?)$", true)?
+            .replace(&value.into_string(), MatchReplacer(2))
+            .to_string()),
+        ExpansionModifier::StripShortestSuffix(pattern) => Ok(pattern
+            .to_regex("^(.*)(?:", ")$", false)?
+            .replace(&value.into_string(), MatchReplacer(1))
+            .to_string()),
+        ExpansionModifier::StripLongestSuffix(pattern) => Ok(pattern
+            .to_regex("^(.*?)(?:", ")$", true)?
+            .replace(&value.into_string(), MatchReplacer(1))
+            .to_string()),
         ExpansionModifier::ReplaceOnce { pattern, string } => match string {
-            None => Ok(glob_to_regex(pattern, "", "", true)?
+            None => Ok(pattern
+                .to_regex("", "", true)?
                 .replace(&value.into_string(), "")
                 .to_string()),
-            Some(text) => Ok(glob_to_regex(pattern, "", "", true)?
+            Some(text) => Ok(pattern
+                .to_regex("", "", true)?
                 .replace(&value.into_string(), &eval_text(apml, &text)?)
                 .to_string()),
         },
         ExpansionModifier::ReplaceAll { pattern, string } => match string {
-            None => Ok(glob_to_regex(pattern, "", "", true)?
+            None => Ok(pattern
+                .to_regex("", "", true)?
                 .replace_all(&value.into_string(), "")
                 .to_string()),
-            Some(text) => Ok(glob_to_regex(pattern, "", "", true)?
+            Some(text) => Ok(pattern
+                .to_regex("", "", true)?
                 .replace_all(&value.into_string(), &eval_text(apml, &text)?)
                 .to_string()),
         },
         ExpansionModifier::ReplacePrefix { pattern, string } => match string {
-            None => Ok(glob_to_regex(pattern, "^", "", true)?
+            None => Ok(pattern
+                .to_regex("^", "", true)?
                 .replace_all(&value.into_string(), "")
                 .to_string()),
-            Some(text) => Ok(glob_to_regex(pattern, "^", "", true)?
+            Some(text) => Ok(pattern
+                .to_regex("^", "", true)?
                 .replace_all(&value.into_string(), &eval_text(apml, &text)?)
                 .to_string()),
         },
         ExpansionModifier::ReplaceSuffix { pattern, string } => match string {
-            None => Ok(glob_to_regex(pattern, "", "$", true)?
+            None => Ok(pattern
+                .to_regex("", "$", true)?
                 .replace_all(&value.into_string(), "")
                 .to_string()),
-            Some(text) => Ok(glob_to_regex(pattern, "", "$", true)?
+            Some(text) => Ok(pattern
+                .to_regex("", "$", true)?
                 .replace_all(&value.into_string(), &eval_text(apml, &text)?)
                 .to_string()),
         },
-        ExpansionModifier::UpperOnce(pattern) => Ok(glob_to_regex(pattern, "", "", true)?
+        ExpansionModifier::UpperOnce(pattern) => Ok(pattern
+            .to_regex("", "", true)?
             .replace(&value.into_string(), UppercaseReplacer)
             .to_string()),
-        ExpansionModifier::UpperAll(pattern) => Ok(glob_to_regex(pattern, "", "", true)?
+        ExpansionModifier::UpperAll(pattern) => Ok(pattern
+            .to_regex("", "", true)?
             .replace_all(&value.into_string(), UppercaseReplacer)
             .to_string()),
-        ExpansionModifier::LowerOnce(pattern) => Ok(glob_to_regex(pattern, "", "", true)?
+        ExpansionModifier::LowerOnce(pattern) => Ok(pattern
+            .to_regex("", "", true)?
             .replace(&value.into_string(), LowercaseReplacer)
             .to_string()),
-        ExpansionModifier::LowerAll(pattern) => Ok(glob_to_regex(pattern, "", "", true)?
+        ExpansionModifier::LowerAll(pattern) => Ok(pattern
+            .to_regex("", "", true)?
             .replace_all(&value.into_string(), LowercaseReplacer)
             .to_string()),
         ExpansionModifier::ErrorOnUnset(text) => {
@@ -280,33 +287,6 @@ fn apply_expansion_modifier(
         ExpansionModifier::ArrayElements => Ok(value.into_string()),
         ExpansionModifier::SingleWordElements => Ok(value.into_string()),
     }
-}
-
-fn glob_to_regex(pattern: &GlobPattern, pre: &str, post: &str, greedy: bool) -> Result<Regex> {
-    let mut result = String::from(pre);
-    let GlobPattern(parts) = pattern;
-    for part in parts {
-        match part {
-            GlobPart::String(text) => result.push_str(&regex::escape(text.as_ref())),
-            GlobPart::Escaped(ch) => result.push_str(&regex::escape(&ch.to_string())),
-            GlobPart::AnyString => {
-                if greedy {
-                    result.push_str(".*")
-                } else {
-                    result.push_str(".*?")
-                }
-            }
-            GlobPart::AnyChar => result.push_str(".?"),
-            GlobPart::Range(_) => todo!(),
-        }
-    }
-    result.push_str(post);
-    let result = RegexBuilder::new(&result)
-        .case_insensitive(false)
-        .multi_line(true)
-        .unicode(true)
-        .build()?;
-    Ok(result)
 }
 
 struct MatchReplacer(usize);
