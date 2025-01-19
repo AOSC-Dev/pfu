@@ -14,7 +14,7 @@ use nom::{
 
 use crate::apml::glob::{GlobPattern, glob_pattern};
 
-use super::tree::*;
+use super::lst::*;
 
 pub fn apml_ast(i: &str) -> IResult<&str, ApmlParseTree> {
     map(many0(token), ApmlParseTree)(i)

@@ -3,12 +3,12 @@
 use std::{collections::HashMap, ops::Add};
 
 use eval::EvalError;
-use tree::ApmlParseTree;
+use lst::ApmlParseTree;
 
 pub mod eval;
 pub mod glob;
 pub mod parser;
-pub mod tree;
+pub mod lst;
 
 /// A evaluated APML context.
 #[derive(Debug, PartialEq, Eq, Clone)]

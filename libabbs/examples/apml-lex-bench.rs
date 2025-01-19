@@ -24,7 +24,7 @@ fn main() {
     let start = Instant::now();
     for _ in 0..10 {
         for src in &srcs {
-            let _ = libabbs::apml::tree::ApmlParseTree::parse(&src).unwrap();
+            let _ = libabbs::apml::lst::ApmlParseTree::parse(&src).unwrap();
         }
     }
     let elapsed = start.elapsed();
