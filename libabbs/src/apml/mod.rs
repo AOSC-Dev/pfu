@@ -2,6 +2,7 @@
 
 use std::{
     collections::HashMap,
+    fmt::{Display, Write},
     ops::{Add, AddAssign, Index},
 };
 
@@ -72,9 +73,19 @@ impl ApmlContext {
         self.variables.insert(name, value);
     }
 
+    /// Iterates over all variables.
+    pub fn iter(&self) -> impl Iterator<Item = (&String, &VariableValue)> {
+        self.variables.iter()
+    }
+
     /// Iterates over all variable names.
     pub fn keys(&self) -> impl Iterator<Item = &String> {
         self.variables.keys()
+    }
+
+    /// Returns if a variable is defined.
+    pub fn contains_var<S: AsRef<str>>(&self, key: S) -> bool {
+        self.variables.contains_key(key.as_ref())
     }
 }
 
@@ -84,6 +95,16 @@ impl<S: AsRef<str>> Index<S> for ApmlContext {
     fn index(&self, index: S) -> &Self::Output {
         self.get(index.as_ref())
             .expect("no value found for variable")
+    }
+}
+
+impl IntoIterator for ApmlContext {
+    type Item = (String, VariableValue);
+
+    type IntoIter = <HashMap<String, VariableValue> as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.variables.into_iter()
     }
 }
 
@@ -259,6 +280,32 @@ impl<S: AsRef<str>> PartialEq<S> for VariableValue {
     }
 }
 
+impl Display for VariableValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::String(val) => {
+                f.write_char('\'')?;
+                f.write_str(&val.replace('\'', "'\\''"))?;
+                f.write_char('\'')?;
+                Ok(())
+            }
+            Self::Array(val) => {
+                f.write_char('(')?;
+                for (idx, val) in (1..).zip(val) {
+                    if idx != 1 {
+                        f.write_char(' ')?;
+                    }
+                    f.write_char('\'')?;
+                    f.write_str(&val.replace('\'', "'\\''"))?;
+                    f.write_char('\'')?;
+                }
+                f.write_char(')')?;
+                Ok(())
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -288,6 +335,10 @@ mod test {
         assert_eq!(
             VariableValue::String("test".into()) + "test" + VariableValue::String("test".into()),
             "testtesttest"
+        );
+        assert_eq!(
+            format!("{}", VariableValue::String("test'test".into())),
+            "'test'\\''test'"
         );
     }
 
@@ -319,6 +370,13 @@ mod test {
                 + "test",
             VariableValue::Array(vec!["test".into(), "test".into(), "test".into()])
         );
+        assert_eq!(
+            format!(
+                "{}",
+                VariableValue::Array(vec!["test'test".into(), "test".into(), "test".into()])
+            ),
+            "('test'\\''test' 'test' 'test')"
+        );
     }
 
     #[test]
@@ -337,6 +395,8 @@ B="${VAR1[*]}"
         assert_eq!(apml["VAR1"], "test b");
         assert_eq!(apml["A"], "test b");
         assert_eq!(apml["B"], "test b");
+        assert!(apml.contains_var("VAR1"));
+        assert!(!apml.contains_var("nonexistence"));
         assert_eq!(apml.get("VAR1").unwrap(), &"test b");
         assert_eq!(apml.read("VAR1"), "test b");
         assert_eq!(apml.read("VAR2"), "");
@@ -361,8 +421,20 @@ B="${VAR1[*]}"
         assert_eq!(apml.get("A"), None);
         apml.insert("A".to_string(), "test".into());
         assert_eq!(apml["A"], "test");
-        let mut keys = apml.keys().collect::<Vec<_>>();
-        keys.sort();
-        assert_eq!(keys, vec!["A", "B", "VAR1"])
+        {
+            let mut keys = apml.keys().collect::<Vec<_>>();
+            keys.sort();
+            assert_eq!(keys, vec!["A", "B", "VAR1"]);
+        }
+        {
+            let mut entries = apml.iter().map(|(k, _)| k).collect::<Vec<_>>();
+            entries.sort();
+            assert_eq!(entries, vec!["A", "B", "VAR1"]);
+        }
+        {
+            let mut entries = apml.clone().into_iter().map(|(k, _)| k).collect::<Vec<_>>();
+            entries.sort();
+            assert_eq!(entries, vec!["A", "B", "VAR1"]);
+        }
     }
 }
