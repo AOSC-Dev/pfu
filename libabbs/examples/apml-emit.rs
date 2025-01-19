@@ -3,7 +3,10 @@ use std::{
     fs,
 };
 
-use libabbs::apml::{ast::{ApmlAst, AstNode}, lst::ApmlLst};
+use libabbs::apml::{
+    ast::{ApmlAst, AstNode},
+    lst::ApmlLst,
+};
 
 fn main() {
     let file = args().nth(1).expect("Usage: apml-emit <PATH>");

@@ -1,155 +1,91 @@
 //! APML expression evaluator.
 
-use std::{
-    cmp::{max, min},
-    num::ParseIntError,
-};
+use std::cmp::min;
 
 use thiserror::Error;
 
-use super::{
-    ApmlContext,
-    lst::{
-        ApmlLst, ArrayToken, ExpansionModifier, LiteralPart, Text, TextUnit, Token,
-        VariableDefinition, VariableOp, VariableValue, Word,
-    },
-    parser::ParseError,
-};
+use super::{ApmlContext, VariableValue, ast};
 
 #[derive(Error, Debug)]
 pub enum EvalError {
-    #[error(transparent)]
-    ParseError(#[from] ParseError),
-    #[error("Unparsable integer: {0}")]
-    UnparsableInt(#[from] ParseIntError),
     #[error("Glob-as-regex error: {0}")]
     RegexError(#[from] regex::Error),
     #[error("Required variable is unset: {0}")]
     Unset(String),
 }
 
-pub type Result<T> = std::result::Result<T, EvalError>;
+type Result<T> = std::result::Result<T, EvalError>;
 
-pub fn eval_parse_tree(apml: &mut ApmlContext, tree: &ApmlLst) -> Result<()> {
-    let ApmlLst(tokens) = tree;
-    for token in tokens {
-        eval_token(apml, token)?;
+pub fn eval_ast(apml: &mut ApmlContext, tree: &ast::ApmlAst) -> Result<()> {
+    let ast::ApmlAst(defs) = tree;
+    for def in defs {
+        eval_variable_def(apml, def)?;
     }
     Ok(())
 }
 
-fn eval_token(apml: &mut ApmlContext, token: &Token) -> Result<()> {
-    match token {
-        Token::Spacy(_) | Token::Newline | Token::Comment(_) => Ok(()),
-        Token::Variable(def) => eval_variable_def(apml, def),
-    }
-}
-
-fn eval_variable_def(apml: &mut ApmlContext, def: &VariableDefinition) -> Result<()> {
+#[inline]
+fn eval_variable_def(apml: &mut ApmlContext, def: &ast::VariableDefinition) -> Result<()> {
     let name = def.name.to_string();
     let value = eval_variable_value(apml, &def.value)?;
-    match def.op {
-        VariableOp::Assignment => {
-            apml.variables.insert(name, value);
-            Ok(())
-        }
-        VariableOp::Append => {
-            let value = apml.variables.remove(&name).unwrap_or_default() + value;
-            apml.variables.insert(name, value);
-            Ok(())
-        }
-    }
+    apml.variables.insert(name, value);
+    Ok(())
 }
 
-fn eval_variable_value(apml: &ApmlContext, value: &VariableValue) -> Result<super::VariableValue> {
+#[inline]
+fn eval_variable_value(apml: &ApmlContext, value: &ast::VariableValue) -> Result<VariableValue> {
     match value {
-        VariableValue::String(text) => Ok(super::VariableValue::String(eval_text(apml, text)?)),
-        VariableValue::Array(tokens) => {
+        ast::VariableValue::String(text) => Ok(VariableValue::String(eval_text(apml, text)?)),
+        ast::VariableValue::Array(element) => {
             let mut result = Vec::new();
-            for token in tokens {
-                eval_array_token(apml, token, &mut result)?;
+            for element in element {
+                eval_array_element(apml, element, &mut result)?;
             }
-            Ok(super::VariableValue::Array(result))
+            Ok(VariableValue::Array(result))
         }
     }
 }
 
-fn eval_array_token(
+#[inline]
+fn eval_array_element(
     apml: &ApmlContext,
-    token: &ArrayToken,
+    element: &ast::ArrayElement,
     values: &mut Vec<String>,
 ) -> Result<()> {
-    match token {
-        ArrayToken::Spacy(_) | ArrayToken::Newline | ArrayToken::Comment(_) => Ok(()),
-        ArrayToken::Element(text) => {
-            let units = &text.0;
-            if units.len() == 1 {
-                let unit = &units[0];
-                match unit {
-                    TextUnit::Unquoted(words) | TextUnit::DoubleQuote(words) => {
-                        if words.len() == 1 {
-                            let word = &words[0];
-                            if let Word::BracedVariable(word) = word {
-                                if word.modifier == Some(ExpansionModifier::ArrayElements) {
-                                    // expand array elements
-                                    values.append(
-                                        &mut apml
-                                            .variables
-                                            .get(word.name.as_ref())
-                                            .cloned()
-                                            .unwrap_or_default()
-                                            .into_array(),
-                                    );
-                                    return Ok(());
-                                }
-                            }
-                        }
-                    }
-                    TextUnit::SingleQuote(_) => {}
-                }
-            }
+    match element {
+        ast::ArrayElement::ArrayInclusion(name) => {
+            // expand array elements
+            values.append(
+                &mut apml
+                    .variables
+                    .get(name.as_ref())
+                    .cloned()
+                    .unwrap_or_default()
+                    .into_array(),
+            );
+            Ok(())
+        }
+        ast::ArrayElement::Text(text) => {
             values.push(eval_text(apml, text)?);
             Ok(())
         }
     }
 }
 
-pub fn eval_text(apml: &ApmlContext, text: &Text) -> Result<String> {
+pub fn eval_text(apml: &ApmlContext, text: &ast::Text) -> Result<String> {
     let mut result = String::new();
-    let Text(units) = text;
-    for unit in units {
-        match unit {
-            TextUnit::Unquoted(words) | TextUnit::DoubleQuote(words) => {
-                for word in words {
-                    result.push_str(&eval_word(apml, word)?);
-                }
-            }
-            TextUnit::SingleQuote(text) => result.push_str(text),
-        }
+    let ast::Text(words) = text;
+    for word in words {
+        result.push_str(&eval_word(apml, word)?);
     }
     Ok(result)
 }
 
-fn eval_word(apml: &ApmlContext, word: &Word) -> Result<String> {
+#[inline]
+fn eval_word(apml: &ApmlContext, word: &ast::Word) -> Result<String> {
     match word {
-        Word::Literal(parts) => {
-            let mut result = String::new();
-            for part in parts {
-                match part {
-                    LiteralPart::String(text) => result.push_str(text),
-                    LiteralPart::Escaped(ch) => result.push(*ch),
-                    LiteralPart::LineContinuation => {}
-                }
-            }
-            Ok(result)
-        }
-        Word::UnbracedVariable(var) => Ok(apml
-            .variables
-            .get(var.as_ref())
-            .cloned()
-            .unwrap_or_default()
-            .into_string()),
-        Word::BracedVariable(expansion) => {
+        ast::Word::Literal(text) | ast::Word::Subcommand(text) => Ok(text.to_string()),
+        ast::Word::Variable(expansion) => {
             let val = apml
                 .variables
                 .get(expansion.name.as_ref())
@@ -161,149 +97,117 @@ fn eval_word(apml: &ApmlContext, word: &Word) -> Result<String> {
                 Ok(val.into_string())
             }
         }
-        Word::Subcommand(_) => Ok(word.to_string()),
     }
 }
 
 fn apply_expansion_modifier(
     apml: &ApmlContext,
-    modifier: &ExpansionModifier,
-    value: super::VariableValue,
+    modifier: &ast::ExpansionModifier,
+    value: VariableValue,
 ) -> Result<String> {
+    struct MatchReplacer(usize);
+    impl regex::Replacer for MatchReplacer {
+        fn replace_append(&mut self, caps: &regex::Captures<'_>, dst: &mut String) {
+            dst.push_str(&caps[self.0]);
+        }
+    }
+
+    struct UppercaseReplacer;
+    impl regex::Replacer for UppercaseReplacer {
+        fn replace_append(&mut self, caps: &regex::Captures<'_>, dst: &mut String) {
+            dst.push_str(&caps[0].to_ascii_uppercase());
+        }
+    }
+
+    struct LowercaseReplacer;
+    impl regex::Replacer for LowercaseReplacer {
+        fn replace_append(&mut self, caps: &regex::Captures<'_>, dst: &mut String) {
+            dst.push_str(&caps[0].to_ascii_lowercase());
+        }
+    }
+
     match modifier {
-        ExpansionModifier::Substring { offset, length } => {
-            let offset = max(offset.as_ref().trim().parse::<isize>()?, 0) as usize;
+        ast::ExpansionModifier::Substring { offset, length } => {
             let value = value.into_string();
             if let Some(length) = length {
-                let length = length.as_ref().trim().parse::<isize>()?;
-                if length > 0 {
-                    Ok(value[offset..min(offset + length as usize, value.len())].to_string())
+                if *length > 0 {
+                    Ok(value[*offset..min(*offset + *length as usize, value.len())].to_string())
                 } else {
-                    Ok(value[offset..(value.len() - (-length) as usize)].to_string())
+                    Ok(value[*offset..(value.len() - (-*length) as usize)].to_string())
                 }
             } else {
-                Ok(value[offset..].to_string())
+                Ok(value[*offset..].to_string())
             }
         }
-        ExpansionModifier::StripShortestPrefix(pattern) => Ok(pattern
+        ast::ExpansionModifier::StripShortestPrefix(pattern) => Ok(pattern
             .to_regex("^(?:", ")?(.*)$", false)?
             .replace(&value.into_string(), MatchReplacer(2))
             .to_string()),
-        ExpansionModifier::StripLongestPrefix(pattern) => Ok(pattern
+        ast::ExpansionModifier::StripLongestPrefix(pattern) => Ok(pattern
             .to_regex("^(?:", ")?(.*?)$", true)?
             .replace(&value.into_string(), MatchReplacer(2))
             .to_string()),
-        ExpansionModifier::StripShortestSuffix(pattern) => Ok(pattern
+        ast::ExpansionModifier::StripShortestSuffix(pattern) => Ok(pattern
             .to_regex("^(.*)(?:", ")$", false)?
             .replace(&value.into_string(), MatchReplacer(1))
             .to_string()),
-        ExpansionModifier::StripLongestSuffix(pattern) => Ok(pattern
+        ast::ExpansionModifier::StripLongestSuffix(pattern) => Ok(pattern
             .to_regex("^(.*?)(?:", ")$", true)?
             .replace(&value.into_string(), MatchReplacer(1))
             .to_string()),
-        ExpansionModifier::ReplaceOnce { pattern, string } => match string {
-            None => Ok(pattern
-                .to_regex("", "", true)?
-                .replace(&value.into_string(), "")
-                .to_string()),
-            Some(text) => Ok(pattern
-                .to_regex("", "", true)?
-                .replace(&value.into_string(), &eval_text(apml, text)?)
-                .to_string()),
-        },
-        ExpansionModifier::ReplaceAll { pattern, string } => match string {
-            None => Ok(pattern
-                .to_regex("", "", true)?
-                .replace_all(&value.into_string(), "")
-                .to_string()),
-            Some(text) => Ok(pattern
-                .to_regex("", "", true)?
-                .replace_all(&value.into_string(), &eval_text(apml, text)?)
-                .to_string()),
-        },
-        ExpansionModifier::ReplacePrefix { pattern, string } => match string {
-            None => Ok(pattern
-                .to_regex("^", "", true)?
-                .replace_all(&value.into_string(), "")
-                .to_string()),
-            Some(text) => Ok(pattern
-                .to_regex("^", "", true)?
-                .replace_all(&value.into_string(), &eval_text(apml, text)?)
-                .to_string()),
-        },
-        ExpansionModifier::ReplaceSuffix { pattern, string } => match string {
-            None => Ok(pattern
-                .to_regex("", "$", true)?
-                .replace_all(&value.into_string(), "")
-                .to_string()),
-            Some(text) => Ok(pattern
-                .to_regex("", "$", true)?
-                .replace_all(&value.into_string(), &eval_text(apml, text)?)
-                .to_string()),
-        },
-        ExpansionModifier::UpperOnce(pattern) => Ok(pattern
+        ast::ExpansionModifier::ReplaceOnce { pattern, string } => Ok(pattern
+            .to_regex("", "", true)?
+            .replace(&value.into_string(), &eval_text(apml, string)?)
+            .to_string()),
+        ast::ExpansionModifier::ReplaceAll { pattern, string } => Ok(pattern
+            .to_regex("", "", true)?
+            .replace_all(&value.into_string(), &eval_text(apml, string)?)
+            .to_string()),
+        ast::ExpansionModifier::ReplacePrefix { pattern, string } => Ok(pattern
+            .to_regex("^", "", true)?
+            .replace_all(&value.into_string(), &eval_text(apml, string)?)
+            .to_string()),
+        ast::ExpansionModifier::ReplaceSuffix { pattern, string } => Ok(pattern
+            .to_regex("", "$", true)?
+            .replace_all(&value.into_string(), &eval_text(apml, string)?)
+            .to_string()),
+        ast::ExpansionModifier::UpperOnce(pattern) => Ok(pattern
             .to_regex("", "", true)?
             .replace(&value.into_string(), UppercaseReplacer)
             .to_string()),
-        ExpansionModifier::UpperAll(pattern) => Ok(pattern
+        ast::ExpansionModifier::UpperAll(pattern) => Ok(pattern
             .to_regex("", "", true)?
             .replace_all(&value.into_string(), UppercaseReplacer)
             .to_string()),
-        ExpansionModifier::LowerOnce(pattern) => Ok(pattern
+        ast::ExpansionModifier::LowerOnce(pattern) => Ok(pattern
             .to_regex("", "", true)?
             .replace(&value.into_string(), LowercaseReplacer)
             .to_string()),
-        ExpansionModifier::LowerAll(pattern) => Ok(pattern
+        ast::ExpansionModifier::LowerAll(pattern) => Ok(pattern
             .to_regex("", "", true)?
             .replace_all(&value.into_string(), LowercaseReplacer)
             .to_string()),
-        ExpansionModifier::ErrorOnUnset(text) => {
+        ast::ExpansionModifier::ErrorOnUnset(text) => {
             if value.is_empty() {
                 Err(EvalError::Unset(eval_text(apml, text)?))
             } else {
                 Ok(value.into_string())
             }
         }
-        ExpansionModifier::Length => Ok(value.len().to_string()),
-        ExpansionModifier::WhenUnset(text) => {
+        ast::ExpansionModifier::Length => Ok(value.len().to_string()),
+        ast::ExpansionModifier::WhenUnset(text) => {
             if value.is_empty() {
                 eval_text(apml, text)
             } else {
                 Ok(value.into_string())
             }
         }
-        ExpansionModifier::WhenSet(text) => {
+        ast::ExpansionModifier::WhenSet(text) => {
             if !value.is_empty() {
                 eval_text(apml, text)
             } else {
                 Ok(value.into_string())
             }
         }
-        ExpansionModifier::ArrayElements => Ok(value.into_string()),
-        ExpansionModifier::SingleWordElements => Ok(value.into_string()),
-    }
-}
-
-struct MatchReplacer(usize);
-
-impl regex::Replacer for MatchReplacer {
-    fn replace_append(&mut self, caps: &regex::Captures<'_>, dst: &mut String) {
-        dst.push_str(&caps[self.0]);
-    }
-}
-
-struct UppercaseReplacer;
-
-impl regex::Replacer for UppercaseReplacer {
-    fn replace_append(&mut self, caps: &regex::Captures<'_>, dst: &mut String) {
-        dst.push_str(&caps[0].to_ascii_uppercase());
-    }
-}
-
-struct LowercaseReplacer;
-
-impl regex::Replacer for LowercaseReplacer {
-    fn replace_append(&mut self, caps: &regex::Captures<'_>, dst: &mut String) {
-        dst.push_str(&caps[0].to_ascii_lowercase());
     }
 }

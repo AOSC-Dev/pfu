@@ -271,6 +271,8 @@ pub enum Word<'a> {
     /// A variable expansion.
     Variable(VariableExpansion<'a>),
     /// A complete subcommand string, including `$(` and `)`.
+    ///
+    /// The inner string is escaped.
     Subcommand(Cow<'a, str>),
 }
 

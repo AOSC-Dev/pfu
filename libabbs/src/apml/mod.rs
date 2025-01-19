@@ -2,8 +2,9 @@
 
 use std::{collections::HashMap, ops::Add};
 
-use eval::EvalError;
+use ast::{ApmlAst, AstNode};
 use lst::ApmlLst;
+use thiserror::Error;
 
 pub mod ast;
 pub mod eval;
@@ -12,25 +13,27 @@ pub mod parser;
 pub mod pattern;
 
 /// A evaluated APML context.
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Default)]
 pub struct ApmlContext {
     variables: HashMap<String, VariableValue>,
 }
 
 impl ApmlContext {
-    /// Evaluates a APML source code, expanding variables.
-    pub fn eval(tree: &ApmlLst) -> std::result::Result<Self, EvalError> {
-        let mut apml = ApmlContext {
-            variables: HashMap::new(),
-        };
-        eval::eval_parse_tree(&mut apml, tree)?;
+    /// Evaluates a APML AST, expanding variables.
+    pub fn eval_ast(ast: &ApmlAst) -> std::result::Result<Self, ApmlError> {
+        let mut apml = ApmlContext::default();
+        eval::eval_ast(&mut apml, ast)?;
         Ok(apml)
     }
 
+    /// Emits and evaluates a APML LST.
+    pub fn eval_lst(lst: &ApmlLst) -> std::result::Result<Self, ApmlError> {
+        Self::eval_ast(&ApmlAst::emit_from(lst)?)
+    }
+
     /// Parses a APML source code, expanding variables.
-    pub fn parse(src: &str) -> std::result::Result<Self, EvalError> {
-        let tree = ApmlLst::parse(src)?;
-        Self::eval(&tree)
+    pub fn eval_source(src: &str) -> std::result::Result<Self, ApmlError> {
+        Self::eval_lst(&ApmlLst::parse(src)?)
     }
 
     /// Gets a variable value.
@@ -65,6 +68,16 @@ impl ApmlContext {
     pub fn keys(&self) -> impl Iterator<Item = &String> {
         self.variables.keys()
     }
+}
+
+#[derive(Debug, Error)]
+pub enum ApmlError {
+    #[error(transparent)]
+    Parse(#[from] parser::ParseError),
+    #[error(transparent)]
+    Emit(#[from] ast::EmitError),
+    #[error(transparent)]
+    Eval(#[from] eval::EvalError),
 }
 
 /// Value of variables.
@@ -176,13 +189,76 @@ impl Add for VariableValue {
     }
 }
 
+impl<S: AsRef<str>> From<S> for VariableValue {
+    fn from(value: S) -> Self {
+        Self::String(value.as_ref().to_string())
+    }
+}
+
 #[cfg(test)]
 mod test {
-    use super::ApmlContext;
+    use super::*;
+
+    #[test]
+    fn test_variable_value_string() {
+        assert_eq!(VariableValue::default().as_string(), "");
+        assert_eq!(VariableValue::String("test".into()).as_string(), "test");
+        assert_eq!(VariableValue::String("test".into()).into_string(), "test");
+        assert_eq!(
+            VariableValue::String("".into()).as_array(),
+            Vec::<String>::new()
+        );
+        assert_eq!(VariableValue::String("test".into()).into_array(), vec![
+            "test".to_string()
+        ]);
+        assert_eq!(
+            VariableValue::String("".into()).into_array(),
+            Vec::<String>::new()
+        );
+        assert_eq!(VariableValue::String("test".into()).len(), 4);
+        assert!(VariableValue::String("".into()).is_empty());
+        assert!(!VariableValue::String("test".into()).is_empty());
+        assert_eq!(
+            VariableValue::String("test".into())
+                + "test".into()
+                + VariableValue::String("test".into()),
+            "testtesttest".into()
+        );
+    }
+
+    #[test]
+    fn test_variable_value_array() {
+        assert!(VariableValue::default().as_array().is_empty());
+        assert_eq!(
+            VariableValue::Array(vec!["test".into()]).as_string(),
+            "test"
+        );
+        assert_eq!(
+            VariableValue::Array(vec!["test".into()]).into_string(),
+            "test"
+        );
+        assert_eq!(VariableValue::Array(vec!["test".into()]).as_array(), vec![
+            "test".to_string()
+        ]);
+        assert_eq!(
+            VariableValue::Array(vec!["test".into()]).into_array(),
+            vec!["test".to_string()]
+        );
+        assert_eq!(VariableValue::Array(vec!["test".into()]).len(), 1);
+        assert!(VariableValue::Array(vec![]).is_empty());
+        assert!(!VariableValue::Array(vec!["".into()]).is_empty());
+        assert!(!VariableValue::Array(vec!["test".into()]).is_empty());
+        assert_eq!(
+            VariableValue::Array(vec!["test".into()])
+                + VariableValue::Array(vec!["test".into()])
+                + VariableValue::Array(vec!["test".into()]),
+            VariableValue::Array(vec!["test".into(), "test".into(), "test".into()])
+        );
+    }
 
     #[test]
     fn test_apml_parse() {
-        let apml = ApmlContext::parse(
+        let apml = ApmlContext::eval_source(
             r##"# Test APML
 
 PKGVER=8.2

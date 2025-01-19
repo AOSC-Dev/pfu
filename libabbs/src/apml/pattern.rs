@@ -133,7 +133,7 @@ impl BashPattern<'_> {
     }
 
     /// Converts a pattern into [Regex].
-    pub fn to_regex(&self, before: &str, after: &str, greedy: bool) -> super::eval::Result<Regex> {
+    pub fn to_regex(&self, before: &str, after: &str, greedy: bool) -> Result<Regex, regex::Error> {
         let mut result = String::from(before);
         self.build_regex(&mut result, greedy);
         result.push_str(after);
