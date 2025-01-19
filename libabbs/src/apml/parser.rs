@@ -152,7 +152,7 @@ where
             char('"'),
             map(
                 many0(|s| word(s, &|_| true, &one_of("$\\\"`"))),
-                TextUnit::DuobleQuote,
+                TextUnit::DoubleQuote,
             ),
             char('"'),
         ),
@@ -369,8 +369,8 @@ fn substring_expansion_modifier(i: &str) -> IResult<&str, ExpansionModifier> {
 #[cfg(test)]
 mod test {
     use crate::apml::{
-        pattern::{GlobPart, BashPattern},
         parser::*,
+        pattern::{BashPattern, GlobPart},
     };
 
     #[test]
@@ -416,7 +416,7 @@ b+=("-a" \
                             TextUnit::Unquoted(vec![Word::Literal(vec![LiteralPart::String(
                                 Cow::Borrowed("a")
                             )])]),
-                            TextUnit::DuobleQuote(vec![
+                            TextUnit::DoubleQuote(vec![
                                 Word::BracedVariable(BracedExpansion {
                                     name: Cow::Borrowed("a"),
                                     modifier: Some(ExpansionModifier::Length)
@@ -636,7 +636,7 @@ b+=("-a" \
                         name: Cow::Borrowed("b"),
                         op: VariableOp::Append,
                         value: VariableValue::Array(vec![
-                            ArrayToken::Element(Rc::new(Text(vec![TextUnit::DuobleQuote(vec![
+                            ArrayToken::Element(Rc::new(Text(vec![TextUnit::DoubleQuote(vec![
                                 Word::Literal(vec![LiteralPart::String(Cow::Borrowed("-a"))])
                             ])]))),
                             ArrayToken::Spacy(' '),
@@ -651,14 +651,14 @@ b+=("-a" \
                                 Word::Literal(vec![LiteralPart::String(Cow::Borrowed("-b"))])
                             ])]))),
                             ArrayToken::Spacy(' '),
-                            ArrayToken::Element(Rc::new(Text(vec![TextUnit::DuobleQuote(vec![
+                            ArrayToken::Element(Rc::new(Text(vec![TextUnit::DoubleQuote(vec![
                                 Word::BracedVariable(BracedExpansion {
                                     name: Cow::Borrowed("a"),
                                     modifier: Some(ExpansionModifier::ArrayElements)
                                 })
                             ])]))),
                             ArrayToken::Spacy(' '),
-                            ArrayToken::Element(Rc::new(Text(vec![TextUnit::DuobleQuote(vec![
+                            ArrayToken::Element(Rc::new(Text(vec![TextUnit::DoubleQuote(vec![
                                 Word::BracedVariable(BracedExpansion {
                                     name: Cow::Borrowed("a"),
                                     modifier: Some(ExpansionModifier::SingleWordElements)
@@ -808,7 +808,7 @@ MESON_AFTER__AMD64=" \
             variable_value("\"${#a} b\\ #l \\\nc\"\n").unwrap(),
             (
                 "\n",
-                VariableValue::String(Rc::new(Text(vec![TextUnit::DuobleQuote(vec![
+                VariableValue::String(Rc::new(Text(vec![TextUnit::DoubleQuote(vec![
                     Word::BracedVariable(BracedExpansion {
                         name: Cow::Borrowed("a"),
                         modifier: Some(ExpansionModifier::Length)
@@ -847,7 +847,7 @@ MESON_AFTER__AMD64=" \
                         Word::Literal(vec![LiteralPart::String(Cow::Borrowed("a")),])
                     ])]))),
                     ArrayToken::Spacy(' '),
-                    ArrayToken::Element(Rc::new(Text(vec![TextUnit::DuobleQuote(vec![
+                    ArrayToken::Element(Rc::new(Text(vec![TextUnit::DoubleQuote(vec![
                         Word::BracedVariable(BracedExpansion {
                             name: Cow::Borrowed("a"),
                             modifier: Some(ExpansionModifier::Length)
@@ -917,7 +917,7 @@ MESON_AFTER__AMD64=" \
                         Word::UnbracedVariable(Cow::Borrowed("a")),
                     ]),
                     TextUnit::SingleQuote(Cow::Borrowed("test")),
-                    TextUnit::DuobleQuote(vec![
+                    TextUnit::DoubleQuote(vec![
                         Word::Literal(vec![LiteralPart::String(Cow::Borrowed("a"))]),
                         Word::UnbracedVariable(Cow::Borrowed("a")),
                         Word::BracedVariable(BracedExpansion {
@@ -974,7 +974,7 @@ MESON_AFTER__AMD64=" \
             text_unit("\"1\\\na$a${#b}安同'\" a", &|ch| ch != ' ').unwrap(),
             (
                 " a",
-                TextUnit::DuobleQuote(vec![
+                TextUnit::DoubleQuote(vec![
                     Word::Literal(vec![
                         LiteralPart::String(Cow::Borrowed("1")),
                         LiteralPart::LineContinuation,

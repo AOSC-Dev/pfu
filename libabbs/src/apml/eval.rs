@@ -8,10 +8,12 @@ use std::{
 use thiserror::Error;
 
 use super::{
+    ApmlContext,
     lst::{
         ApmlLst, ArrayToken, ExpansionModifier, LiteralPart, Text, TextUnit, Token,
         VariableDefinition, VariableOp, VariableValue, Word,
-    }, parser::ParseError, ApmlContext
+    },
+    parser::ParseError,
 };
 
 #[derive(Error, Debug)]
@@ -84,7 +86,7 @@ fn eval_array_token(
             if units.len() == 1 {
                 let unit = &units[0];
                 match unit {
-                    TextUnit::Unquoted(words) | TextUnit::DuobleQuote(words) => {
+                    TextUnit::Unquoted(words) | TextUnit::DoubleQuote(words) => {
                         if words.len() == 1 {
                             let word = &words[0];
                             if let Word::BracedVariable(word) = word {
@@ -117,7 +119,7 @@ pub fn eval_text(apml: &ApmlContext, text: &Text) -> Result<String> {
     let Text(units) = text;
     for unit in units {
         match unit {
-            TextUnit::Unquoted(words) | TextUnit::DuobleQuote(words) => {
+            TextUnit::Unquoted(words) | TextUnit::DoubleQuote(words) => {
                 for word in words {
                     result.push_str(&eval_word(apml, word)?);
                 }

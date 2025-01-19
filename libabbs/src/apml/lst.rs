@@ -3,14 +3,14 @@
 //! This LST is designed to correspond to the source file
 //! byte by byte in order to obtain a lossless reverse
 //! conversion capability to the source file.
-//! 
+//!
 //! To parse a source string into LST, see [`ApmlLst::parse`] and [`parser`][super::parser].
-//! 
+//!
 //! The root of LST is [`ApmlLst`], which is made up by a list of [tokens](Token).
-//! 
+//!
 //! A token may be a [`VariableDefinition`], a space-like character, or a newline.
 //! For example, `TEST=value\n` can be parsed into a [`VariableDefinition`] token and a newline token.
-//! 
+//!
 //! <div class="warning">
 //! The LST structure poses few of limitations and validations.
 //! It is your duty to make sure the generated LST is valid, or else
@@ -23,7 +23,10 @@ use std::{
     rc::Rc,
 };
 
-use super::{pattern::BashPattern, parser::{apml_lst, ParseError}};
+use super::{
+    parser::{ParseError, apml_lst},
+    pattern::BashPattern,
+};
 
 /// A APML parse-tree, consisting of a list of tokens.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -40,7 +43,7 @@ impl Display for ApmlLst<'_> {
 
 impl<'a> ApmlLst<'a> {
     /// Parses a APML source string into a lossless syntax tree.
-    /// 
+    ///
     /// This is a wrapper calling [`apml_lst`] parser combinator,
     /// while errors produced by the parser are converted into [`ParseError`],
     /// and [`ParseError::UnexpectedSource`] is produced when
@@ -181,7 +184,7 @@ pub enum TextUnit<'a> {
     /// A single-quoted text unit (`"'<text>'"`).
     SingleQuote(Cow<'a, str>),
     /// A double-quoted text unit (`"\"<words>\""`).
-    DuobleQuote(Vec<Word<'a>>),
+    DoubleQuote(Vec<Word<'a>>),
 }
 
 impl Display for TextUnit<'_> {
@@ -194,7 +197,7 @@ impl Display for TextUnit<'_> {
                 Ok(())
             }
             TextUnit::SingleQuote(text) => f.write_fmt(format_args!("'{}'", text)),
-            TextUnit::DuobleQuote(words) => {
+            TextUnit::DoubleQuote(words) => {
                 f.write_char('"')?;
                 for word in words {
                     Display::fmt(word, f)?;
@@ -209,7 +212,7 @@ impl Display for TextUnit<'_> {
 /// A word is a part of a text unit.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Word<'a> {
-    /// A literal string (`"<parts>"`)
+    /// A literal string (`"<parts>"`).
     Literal(Vec<LiteralPart<'a>>),
     /// An unbraced variable expansion (`"$<var>"`).
     UnbracedVariable(Cow<'a, str>),
@@ -260,6 +263,44 @@ impl Display for LiteralPart<'_> {
             LiteralPart::Escaped(ch) => f.write_fmt(format_args!("\\{}", ch)),
             LiteralPart::LineContinuation => f.write_str("\\\n"),
         }
+    }
+}
+
+impl LiteralPart<'_> {
+    /// Returns if a character should be escaped when used in double-quoted words.
+    pub fn should_escape(ch: char) -> bool {
+        matches!(ch, '$' | '"' | '\\')
+    }
+
+    /// Produces a list of literal part, escaping characters that need to be
+    /// escaped when used in double-quoted words.
+    ///
+    /// Note that all escaped strings will be cloned,
+    /// so this function needs more allocations.
+    pub fn escape<S: AsRef<str>>(text: S) -> Vec<Self> {
+        let mut result = Vec::new();
+        let mut buffer = String::new();
+        for ch in text.as_ref().chars() {
+            if Self::should_escape(ch) {
+                if !buffer.is_empty() {
+                    result.push(LiteralPart::String(Cow::Owned(buffer)));
+                    buffer = String::new();
+                }
+                result.push(LiteralPart::Escaped(ch));
+            } else if ch == '\n' {
+                if !buffer.is_empty() {
+                    result.push(LiteralPart::String(Cow::Owned(buffer)));
+                    buffer = String::new();
+                }
+                result.push(LiteralPart::LineContinuation);
+            } else {
+                buffer.push(ch);
+            }
+        }
+        if !buffer.is_empty() {
+            result.push(LiteralPart::String(Cow::Owned(buffer)));
+        }
+        result
     }
 }
 
@@ -397,7 +438,7 @@ impl Display for ExpansionModifier<'_> {
             ExpansionModifier::LowerOnce(pattern) => f.write_fmt(format_args!(",{}", pattern)),
             ExpansionModifier::LowerAll(pattern) => f.write_fmt(format_args!(",,{}", pattern)),
             ExpansionModifier::ErrorOnUnset(text) => f.write_fmt(format_args!(":?{}", text)),
-            ExpansionModifier::Length => unreachable!(),
+            ExpansionModifier::Length => f.write_char('#'),
             ExpansionModifier::WhenUnset(text) => f.write_fmt(format_args!(":-{}", text)),
             ExpansionModifier::WhenSet(text) => f.write_fmt(format_args!(":+{}", text)),
             ExpansionModifier::ArrayElements => f.write_str("[@]"),
@@ -445,5 +486,26 @@ mod test {
         dbg!(&tree);
         let tree = ApmlLst::parse(r##"aaa"##).unwrap_err();
         dbg!(&tree);
+    }
+
+    #[test]
+    fn test_literal_part_escape() {
+        assert!(LiteralPart::should_escape('$'));
+        assert!(LiteralPart::should_escape('"'));
+        assert!(LiteralPart::should_escape('\\'));
+        assert!(!LiteralPart::should_escape('a'));
+        assert!(!LiteralPart::should_escape(' '));
+        assert_eq!(LiteralPart::escape("asdf"), vec![LiteralPart::String(
+            "asdf".into()
+        )]);
+        assert_eq!(LiteralPart::escape("asd$$f\ng\\"), vec![
+            LiteralPart::String("asd".into()),
+            LiteralPart::Escaped('$'),
+            LiteralPart::Escaped('$'),
+            LiteralPart::String("f".into()),
+            LiteralPart::LineContinuation,
+            LiteralPart::String("g".into()),
+            LiteralPart::Escaped('\\'),
+        ]);
     }
 }

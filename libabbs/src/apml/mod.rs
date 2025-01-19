@@ -5,10 +5,11 @@ use std::{collections::HashMap, ops::Add};
 use eval::EvalError;
 use lst::ApmlLst;
 
+pub mod ast;
 pub mod eval;
-pub mod pattern;
-pub mod parser;
 pub mod lst;
+pub mod parser;
+pub mod pattern;
 
 /// A evaluated APML context.
 #[derive(Debug, PartialEq, Eq, Clone)]
