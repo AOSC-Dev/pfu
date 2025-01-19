@@ -1,4 +1,4 @@
-//! Parser combinators to parse APML source to lossless syntax tree.
+//! Parser combinators to parse APML source code to [LST][super::lst].
 
 use std::{borrow::Cow, rc::Rc};
 
@@ -11,13 +11,24 @@ use nom::{
     multi::{many0, many1},
     sequence::{delimited, pair, preceded, tuple},
 };
+use thiserror::Error;
 
-use crate::apml::glob::{GlobPattern, glob_pattern};
+use crate::apml::pattern::{BashPattern, bash_pattern};
 
 use super::lst::*;
 
-pub fn apml_ast(i: &str) -> IResult<&str, ApmlParseTree> {
-    map(many0(token), ApmlParseTree)(i)
+/// Errors produced while parsing the input source.
+#[derive(Debug, Error)]
+pub enum ParseError {
+    #[error("Syntax error: {0}")]
+    SyntaxError(String),
+    #[error("Unexpected source at char {pos}")]
+    UnexpectedSource { pos: usize },
+}
+
+/// Parses a complete APML source into LST.
+pub fn apml_lst(i: &str) -> IResult<&str, ApmlLst> {
+    map(many0(token), ApmlLst)(i)
 }
 
 #[inline]
@@ -231,12 +242,12 @@ fn braced_expansion(i: &str) -> IResult<&str, BracedExpansion> {
 #[inline]
 fn expansion_modifier(i: &str) -> IResult<&str, ExpansionModifier> {
     #[inline]
-    fn expansion_glob(i: &str) -> IResult<&str, Rc<GlobPattern>> {
-        map(|s| glob_pattern(s, "}"), Rc::new)(i)
+    fn expansion_glob(i: &str) -> IResult<&str, Rc<BashPattern>> {
+        map(|s| bash_pattern(s, "}"), Rc::new)(i)
     }
     #[inline]
-    fn expansion_glob_replace(i: &str) -> IResult<&str, Rc<GlobPattern>> {
-        map(|s| glob_pattern(s, "}/"), Rc::new)(i)
+    fn expansion_glob_replace(i: &str) -> IResult<&str, Rc<BashPattern>> {
+        map(|s| bash_pattern(s, "}/"), Rc::new)(i)
     }
     #[inline]
     fn expansion_text(i: &str) -> IResult<&str, Rc<Text>> {
@@ -358,7 +369,7 @@ fn substring_expansion_modifier(i: &str) -> IResult<&str, ExpansionModifier> {
 #[cfg(test)]
 mod test {
     use crate::apml::{
-        glob::{GlobPart, GlobPattern},
+        pattern::{GlobPart, BashPattern},
         parser::*,
     };
 
@@ -378,10 +389,10 @@ b+=("-a" \
 )
 "##;
         assert_eq!(
-            apml_ast(src).unwrap(),
+            apml_lst(src).unwrap(),
             (
                 "",
-                ApmlParseTree(vec![
+                ApmlLst(vec![
                     Token::Comment(Cow::Borrowed(" Test APML")),
                     Token::Newline,
                     Token::Newline,
@@ -439,13 +450,13 @@ b+=("-a" \
                                 Word::BracedVariable(BracedExpansion {
                                     name: Cow::Borrowed("1"),
                                     modifier: Some(ExpansionModifier::StripLongestPrefix(Rc::new(
-                                        GlobPattern(vec![GlobPart::String(Cow::Borrowed("a"))])
+                                        BashPattern(vec![GlobPart::String(Cow::Borrowed("a"))])
                                     )))
                                 }),
                                 Word::BracedVariable(BracedExpansion {
                                     name: Cow::Borrowed("1"),
                                     modifier: Some(ExpansionModifier::StripShortestPrefix(
-                                        Rc::new(GlobPattern(vec![
+                                        Rc::new(BashPattern(vec![
                                             GlobPart::String(Cow::Borrowed("a.")),
                                             GlobPart::AnyString,
                                             GlobPart::Range(Cow::Borrowed(":alpha:")),
@@ -458,13 +469,13 @@ b+=("-a" \
                                 Word::BracedVariable(BracedExpansion {
                                     name: Cow::Borrowed("1"),
                                     modifier: Some(ExpansionModifier::StripLongestSuffix(Rc::new(
-                                        GlobPattern(vec![GlobPart::String(Cow::Borrowed("1"))])
+                                        BashPattern(vec![GlobPart::String(Cow::Borrowed("1"))])
                                     )))
                                 }),
                                 Word::BracedVariable(BracedExpansion {
                                     name: Cow::Borrowed("1"),
                                     modifier: Some(ExpansionModifier::StripShortestSuffix(
-                                        Rc::new(GlobPattern(vec![GlobPart::String(
+                                        Rc::new(BashPattern(vec![GlobPart::String(
                                             Cow::Borrowed("1")
                                         )]))
                                     ))
@@ -473,7 +484,7 @@ b+=("-a" \
                                 Word::BracedVariable(BracedExpansion {
                                     name: Cow::Borrowed("1"),
                                     modifier: Some(ExpansionModifier::ReplaceOnce {
-                                        pattern: Rc::new(GlobPattern(vec![GlobPart::String(
+                                        pattern: Rc::new(BashPattern(vec![GlobPart::String(
                                             Cow::Borrowed("a")
                                         )])),
                                         string: Some(Rc::new(Text(vec![TextUnit::Unquoted(
@@ -486,7 +497,7 @@ b+=("-a" \
                                 Word::BracedVariable(BracedExpansion {
                                     name: Cow::Borrowed("1"),
                                     modifier: Some(ExpansionModifier::ReplaceAll {
-                                        pattern: Rc::new(GlobPattern(vec![
+                                        pattern: Rc::new(BashPattern(vec![
                                             GlobPart::String(Cow::Borrowed("a")),
                                             GlobPart::AnyChar,
                                             GlobPart::String(Cow::Borrowed("a"))
@@ -499,7 +510,7 @@ b+=("-a" \
                                 Word::BracedVariable(BracedExpansion {
                                     name: Cow::Borrowed("1"),
                                     modifier: Some(ExpansionModifier::ReplacePrefix {
-                                        pattern: Rc::new(GlobPattern(vec![GlobPart::String(
+                                        pattern: Rc::new(BashPattern(vec![GlobPart::String(
                                             Cow::Borrowed("a")
                                         )])),
                                         string: Some(Rc::new(Text(vec![TextUnit::Unquoted(
@@ -512,7 +523,7 @@ b+=("-a" \
                                 Word::BracedVariable(BracedExpansion {
                                     name: Cow::Borrowed("1"),
                                     modifier: Some(ExpansionModifier::ReplaceSuffix {
-                                        pattern: Rc::new(GlobPattern(vec![GlobPart::String(
+                                        pattern: Rc::new(BashPattern(vec![GlobPart::String(
                                             Cow::Borrowed("a")
                                         )])),
                                         string: Some(Rc::new(Text(vec![TextUnit::Unquoted(
@@ -525,26 +536,26 @@ b+=("-a" \
                                 Word::BracedVariable(BracedExpansion {
                                     name: Cow::Borrowed("1"),
                                     modifier: Some(ExpansionModifier::UpperOnce(Rc::new(
-                                        GlobPattern(vec![GlobPart::AnyString])
+                                        BashPattern(vec![GlobPart::AnyString])
                                     )))
                                 }),
                                 Word::BracedVariable(BracedExpansion {
                                     name: Cow::Borrowed("1"),
                                     modifier: Some(ExpansionModifier::UpperAll(Rc::new(
-                                        GlobPattern(vec![GlobPart::AnyString])
+                                        BashPattern(vec![GlobPart::AnyString])
                                     )))
                                 }),
                                 Word::BracedVariable(BracedExpansion {
                                     name: Cow::Borrowed("1"),
                                     modifier: Some(ExpansionModifier::LowerOnce(Rc::new(
-                                        GlobPattern(vec![GlobPart::AnyString])
+                                        BashPattern(vec![GlobPart::AnyString])
                                     )))
                                 }),
                                 Word::Literal(vec![LiteralPart::LineContinuation]),
                                 Word::BracedVariable(BracedExpansion {
                                     name: Cow::Borrowed("1"),
                                     modifier: Some(ExpansionModifier::LowerAll(Rc::new(
-                                        GlobPattern(vec![GlobPart::AnyString])
+                                        BashPattern(vec![GlobPart::AnyString])
                                     )))
                                 }),
                                 Word::BracedVariable(BracedExpansion {
@@ -574,7 +585,7 @@ b+=("-a" \
                                 Word::BracedVariable(BracedExpansion {
                                     name: Cow::Borrowed("1"),
                                     modifier: Some(ExpansionModifier::ReplaceOnce {
-                                        pattern: Rc::new(GlobPattern(vec![GlobPart::String(
+                                        pattern: Rc::new(BashPattern(vec![GlobPart::String(
                                             Cow::Borrowed("a")
                                         )])),
                                         string: None
@@ -583,7 +594,7 @@ b+=("-a" \
                                 Word::BracedVariable(BracedExpansion {
                                     name: Cow::Borrowed("1"),
                                     modifier: Some(ExpansionModifier::ReplaceAll {
-                                        pattern: Rc::new(GlobPattern(vec![GlobPart::String(
+                                        pattern: Rc::new(BashPattern(vec![GlobPart::String(
                                             Cow::Borrowed("a")
                                         )])),
                                         string: None
@@ -592,7 +603,7 @@ b+=("-a" \
                                 Word::BracedVariable(BracedExpansion {
                                     name: Cow::Borrowed("1"),
                                     modifier: Some(ExpansionModifier::ReplacePrefix {
-                                        pattern: Rc::new(GlobPattern(vec![GlobPart::String(
+                                        pattern: Rc::new(BashPattern(vec![GlobPart::String(
                                             Cow::Borrowed("a")
                                         )])),
                                         string: None
@@ -602,7 +613,7 @@ b+=("-a" \
                                 Word::BracedVariable(BracedExpansion {
                                     name: Cow::Borrowed("1"),
                                     modifier: Some(ExpansionModifier::ReplaceSuffix {
-                                        pattern: Rc::new(GlobPattern(vec![GlobPart::String(
+                                        pattern: Rc::new(BashPattern(vec![GlobPart::String(
                                             Cow::Borrowed("a")
                                         )])),
                                         string: None
@@ -611,7 +622,7 @@ b+=("-a" \
                                 Word::BracedVariable(BracedExpansion {
                                     name: Cow::Borrowed("1"),
                                     modifier: Some(ExpansionModifier::ReplaceAll {
-                                        pattern: Rc::new(GlobPattern(vec![GlobPart::String(
+                                        pattern: Rc::new(BashPattern(vec![GlobPart::String(
                                             Cow::Borrowed("a")
                                         )])),
                                         string: Some(Rc::new(Text(vec![])))
@@ -667,7 +678,7 @@ b+=("-a" \
                 ])
             )
         );
-        assert_eq!(apml_ast(src).unwrap().1.to_string(), src);
+        assert_eq!(apml_lst(src).unwrap().1.to_string(), src);
         let src = r##"PKGVER=8.2
 PKGDEP="x11-lib libdrm expat systemd elfutils libvdpau nettle \
         libva wayland s2tc lm-sensors libglvnd llvm-runtime libclc"
@@ -676,7 +687,7 @@ MESON_AFTER="-Ddri-drivers-path=/usr/lib/xorg/modules/dri \
 MESON_AFTER__AMD64=" \
              ${MESON_AFTER} \
              -Dlibunwind=true""##;
-        assert_eq!(apml_ast(src).unwrap().1.to_string(), src);
+        assert_eq!(apml_lst(src).unwrap().1.to_string(), src);
     }
 
     #[test]
@@ -1070,7 +1081,7 @@ MESON_AFTER__AMD64=" \
                 Word::BracedVariable(BracedExpansion {
                     name: Cow::Borrowed("abc"),
                     modifier: Some(ExpansionModifier::StripShortestPrefix(Rc::new(
-                        GlobPattern(vec![
+                        BashPattern(vec![
                             GlobPart::String(Cow::Borrowed("test")),
                             GlobPart::AnyChar
                         ])
@@ -1180,7 +1191,7 @@ MESON_AFTER__AMD64=" \
             expansion_modifier("#a*").unwrap(),
             (
                 "",
-                ExpansionModifier::StripShortestPrefix(Rc::new(GlobPattern(vec![
+                ExpansionModifier::StripShortestPrefix(Rc::new(BashPattern(vec![
                     GlobPart::String(Cow::Borrowed("a")),
                     GlobPart::AnyString
                 ])))
@@ -1190,7 +1201,7 @@ MESON_AFTER__AMD64=" \
             expansion_modifier("##a*").unwrap(),
             (
                 "",
-                ExpansionModifier::StripLongestPrefix(Rc::new(GlobPattern(vec![
+                ExpansionModifier::StripLongestPrefix(Rc::new(BashPattern(vec![
                     GlobPart::String(Cow::Borrowed("a")),
                     GlobPart::AnyString
                 ])))
@@ -1200,7 +1211,7 @@ MESON_AFTER__AMD64=" \
             expansion_modifier("%%a*").unwrap(),
             (
                 "",
-                ExpansionModifier::StripLongestSuffix(Rc::new(GlobPattern(vec![
+                ExpansionModifier::StripLongestSuffix(Rc::new(BashPattern(vec![
                     GlobPart::String(Cow::Borrowed("a")),
                     GlobPart::AnyString
                 ])))
@@ -1210,7 +1221,7 @@ MESON_AFTER__AMD64=" \
             expansion_modifier("%a*").unwrap(),
             (
                 "",
-                ExpansionModifier::StripShortestSuffix(Rc::new(GlobPattern(vec![
+                ExpansionModifier::StripShortestSuffix(Rc::new(BashPattern(vec![
                     GlobPart::String(Cow::Borrowed("a")),
                     GlobPart::AnyString
                 ])))
@@ -1219,7 +1230,7 @@ MESON_AFTER__AMD64=" \
         assert_eq!(
             expansion_modifier("/a*/$b}").unwrap(),
             ("}", ExpansionModifier::ReplaceOnce {
-                pattern: Rc::new(GlobPattern(vec![
+                pattern: Rc::new(BashPattern(vec![
                     GlobPart::String(Cow::Borrowed("a")),
                     GlobPart::AnyString
                 ])),
@@ -1231,7 +1242,7 @@ MESON_AFTER__AMD64=" \
         assert_eq!(
             expansion_modifier("/a*}").unwrap(),
             ("}", ExpansionModifier::ReplaceOnce {
-                pattern: Rc::new(GlobPattern(vec![
+                pattern: Rc::new(BashPattern(vec![
                     GlobPart::String(Cow::Borrowed("a")),
                     GlobPart::AnyString
                 ])),
@@ -1241,7 +1252,7 @@ MESON_AFTER__AMD64=" \
         assert_eq!(
             expansion_modifier("//a*/$b}").unwrap(),
             ("}", ExpansionModifier::ReplaceAll {
-                pattern: Rc::new(GlobPattern(vec![
+                pattern: Rc::new(BashPattern(vec![
                     GlobPart::String(Cow::Borrowed("a")),
                     GlobPart::AnyString
                 ])),
@@ -1253,7 +1264,7 @@ MESON_AFTER__AMD64=" \
         assert_eq!(
             expansion_modifier("//a*}").unwrap(),
             ("}", ExpansionModifier::ReplaceAll {
-                pattern: Rc::new(GlobPattern(vec![
+                pattern: Rc::new(BashPattern(vec![
                     GlobPart::String(Cow::Borrowed("a")),
                     GlobPart::AnyString
                 ])),
@@ -1263,7 +1274,7 @@ MESON_AFTER__AMD64=" \
         assert_eq!(
             expansion_modifier("/#a*/$b}").unwrap(),
             ("}", ExpansionModifier::ReplacePrefix {
-                pattern: Rc::new(GlobPattern(vec![
+                pattern: Rc::new(BashPattern(vec![
                     GlobPart::String(Cow::Borrowed("a")),
                     GlobPart::AnyString
                 ])),
@@ -1275,7 +1286,7 @@ MESON_AFTER__AMD64=" \
         assert_eq!(
             expansion_modifier("/#a*}").unwrap(),
             ("}", ExpansionModifier::ReplacePrefix {
-                pattern: Rc::new(GlobPattern(vec![
+                pattern: Rc::new(BashPattern(vec![
                     GlobPart::String(Cow::Borrowed("a")),
                     GlobPart::AnyString
                 ])),
@@ -1285,7 +1296,7 @@ MESON_AFTER__AMD64=" \
         assert_eq!(
             expansion_modifier("/%a*/$b}").unwrap(),
             ("}", ExpansionModifier::ReplaceSuffix {
-                pattern: Rc::new(GlobPattern(vec![
+                pattern: Rc::new(BashPattern(vec![
                     GlobPart::String(Cow::Borrowed("a")),
                     GlobPart::AnyString
                 ])),
@@ -1297,7 +1308,7 @@ MESON_AFTER__AMD64=" \
         assert_eq!(
             expansion_modifier("/%a*}").unwrap(),
             ("}", ExpansionModifier::ReplaceSuffix {
-                pattern: Rc::new(GlobPattern(vec![
+                pattern: Rc::new(BashPattern(vec![
                     GlobPart::String(Cow::Borrowed("a")),
                     GlobPart::AnyString
                 ])),
@@ -1308,7 +1319,7 @@ MESON_AFTER__AMD64=" \
             expansion_modifier("^a*}").unwrap(),
             (
                 "}",
-                ExpansionModifier::UpperOnce(Rc::new(GlobPattern(vec![
+                ExpansionModifier::UpperOnce(Rc::new(BashPattern(vec![
                     GlobPart::String(Cow::Borrowed("a")),
                     GlobPart::AnyString
                 ])))
@@ -1318,7 +1329,7 @@ MESON_AFTER__AMD64=" \
             expansion_modifier("^^a*}").unwrap(),
             (
                 "}",
-                ExpansionModifier::UpperAll(Rc::new(GlobPattern(vec![
+                ExpansionModifier::UpperAll(Rc::new(BashPattern(vec![
                     GlobPart::String(Cow::Borrowed("a")),
                     GlobPart::AnyString
                 ])))
@@ -1328,7 +1339,7 @@ MESON_AFTER__AMD64=" \
             expansion_modifier(",a*}").unwrap(),
             (
                 "}",
-                ExpansionModifier::LowerOnce(Rc::new(GlobPattern(vec![
+                ExpansionModifier::LowerOnce(Rc::new(BashPattern(vec![
                     GlobPart::String(Cow::Borrowed("a")),
                     GlobPart::AnyString
                 ])))
@@ -1338,7 +1349,7 @@ MESON_AFTER__AMD64=" \
             expansion_modifier(",,a*}").unwrap(),
             (
                 "}",
-                ExpansionModifier::LowerAll(Rc::new(GlobPattern(vec![
+                ExpansionModifier::LowerAll(Rc::new(BashPattern(vec![
                     GlobPart::String(Cow::Borrowed("a")),
                     GlobPart::AnyString
                 ])))
@@ -1348,7 +1359,7 @@ MESON_AFTER__AMD64=" \
             expansion_modifier("^a*}").unwrap(),
             (
                 "}",
-                ExpansionModifier::UpperOnce(Rc::new(GlobPattern(vec![
+                ExpansionModifier::UpperOnce(Rc::new(BashPattern(vec![
                     GlobPart::String(Cow::Borrowed("a")),
                     GlobPart::AnyString
                 ])))

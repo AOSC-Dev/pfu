@@ -1,4 +1,4 @@
-//! Bash pattern matching.
+//! Bash pattern matching used in APML.
 
 use std::{
     borrow::Cow,
@@ -16,11 +16,11 @@ use nom::{
 };
 use regex::{Regex, RegexBuilder};
 
-/// A glob pattern, consisting of some [GlobPart]s.
+/// A pattern, consisting of one or more [`GlobPart`]s.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct GlobPattern<'a>(pub Vec<GlobPart<'a>>);
+pub struct BashPattern<'a>(pub Vec<GlobPart<'a>>);
 
-impl Display for GlobPattern<'_> {
+impl Display for BashPattern<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for part in &self.0 {
             Display::fmt(part, f)?;
@@ -29,7 +29,7 @@ impl Display for GlobPattern<'_> {
     }
 }
 
-/// A element of glob pattern.
+/// A element of [pattern][BashPattern].
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum GlobPart<'a> {
     /// Matches a fixed string (`"<text>"`).
@@ -77,7 +77,7 @@ impl Display for GlobPart<'_> {
 
 /// A list of patterns.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct PatternList<'a>(pub Vec<GlobPattern<'a>>);
+pub struct PatternList<'a>(pub Vec<BashPattern<'a>>);
 
 impl Display for PatternList<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -91,7 +91,7 @@ impl Display for PatternList<'_> {
     }
 }
 
-impl GlobPattern<'_> {
+impl BashPattern<'_> {
     /// Converts a pattern into regex string.
     pub fn build_regex(&self, result: &mut String, greedy: bool) {
         let lazy_flag = if greedy { "" } else { "?" };
@@ -162,14 +162,14 @@ impl PatternList<'_> {
 
 /// Parses a glob pattern.
 #[inline]
-pub fn glob_pattern<'a>(i: &'a str, exclude: &'static str) -> IResult<&'a str, GlobPattern<'a>> {
-    map(many1(|s| glob_part(s, exclude)), |tokens| {
-        GlobPattern(tokens)
+pub fn bash_pattern<'a>(i: &'a str, exclude: &'static str) -> IResult<&'a str, BashPattern<'a>> {
+    map(many1(|s| pattern_part(s, exclude)), |tokens| {
+        BashPattern(tokens)
     })(i)
 }
 
 #[inline]
-fn glob_part<'a>(i: &'a str, exclude: &'static str) -> IResult<&'a str, GlobPart<'a>> {
+fn pattern_part<'a>(i: &'a str, exclude: &'static str) -> IResult<&'a str, GlobPart<'a>> {
     alt((
         // escaped
         map(preceded(char('\\'), anychar), GlobPart::Escaped),
@@ -214,7 +214,7 @@ fn glob_part<'a>(i: &'a str, exclude: &'static str) -> IResult<&'a str, GlobPart
 #[inline]
 fn pattern_list(i: &str) -> IResult<&str, PatternList> {
     map(
-        many0(terminated(|i| glob_pattern(i, "|)"), opt(char('|')))),
+        many0(terminated(|i| bash_pattern(i, "|)"), opt(char('|')))),
         PatternList,
     )(i)
 }
@@ -224,16 +224,16 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_glob_pattern() {
+    fn test_bash_pattern() {
         let pat_list = PatternList(vec![
-            GlobPattern(vec![GlobPart::String(Cow::Borrowed("a"))]),
-            GlobPattern(vec![GlobPart::String(Cow::Borrowed("b"))]),
+            BashPattern(vec![GlobPart::String(Cow::Borrowed("a"))]),
+            BashPattern(vec![GlobPart::String(Cow::Borrowed("b"))]),
         ]);
         assert_eq!(
-            glob_pattern("abc*?\\a[:ascii:]a?(a|b)*(a|b)+(a|b)@(a|b)!(a|b)}a", "}").unwrap(),
+            bash_pattern("abc*?\\a[:ascii:]a?(a|b)*(a|b)+(a|b)@(a|b)!(a|b)}a", "}").unwrap(),
             (
                 "}a",
-                GlobPattern(vec![
+                BashPattern(vec![
                     GlobPart::String(Cow::Borrowed("abc")),
                     GlobPart::AnyString,
                     GlobPart::AnyChar,
@@ -250,14 +250,14 @@ mod test {
         );
 
         let mut result = String::new();
-        glob_pattern("abc*?\\aa?(a|b)*(a|b)+(a|b)@(a|b)!(a|b)}a", "}")
+        bash_pattern("abc*?\\aa?(a|b)*(a|b)+(a|b)@(a|b)!(a|b)}a", "}")
             .unwrap()
             .1
             .build_regex(&mut result, false);
         assert_eq!(result, "abc.*?.?aa(a|b)?(a|b)*?(a|b)+?(a|b)(?!(a|b)).*");
 
         let mut result = String::new();
-        glob_pattern("abc*?\\aa?(a|b)*(a|b)+(a|b)@(a|b)!(a|b)}a", "}")
+        bash_pattern("abc*?\\aa?(a|b)*(a|b)+(a|b)@(a|b)!(a|b)}a", "}")
             .unwrap()
             .1
             .build_regex(&mut result, true);
@@ -265,15 +265,15 @@ mod test {
     }
 
     #[test]
-    fn test_glob_part() {
+    fn test_pattern_part() {
         assert_eq!(
-            glob_part("abc*", "").unwrap(),
+            pattern_part("abc*", "").unwrap(),
             ("*", GlobPart::String(Cow::Borrowed("abc")))
         );
-        assert_eq!(glob_part("*", "").unwrap(), ("", GlobPart::AnyString));
-        assert_eq!(glob_part("?a", "").unwrap(), ("a", GlobPart::AnyChar));
+        assert_eq!(pattern_part("*", "").unwrap(), ("", GlobPart::AnyString));
+        assert_eq!(pattern_part("?a", "").unwrap(), ("a", GlobPart::AnyChar));
         assert_eq!(
-            glob_part("abcd", "c").unwrap(),
+            pattern_part("abcd", "c").unwrap(),
             ("cd", GlobPart::String(Cow::Borrowed("ab")))
         );
     }
@@ -285,8 +285,8 @@ mod test {
             (
                 ")",
                 PatternList(vec![
-                    GlobPattern(vec![GlobPart::String(Cow::Borrowed("abc")),]),
-                    GlobPattern(vec![
+                    BashPattern(vec![GlobPart::String(Cow::Borrowed("abc")),]),
+                    BashPattern(vec![
                         GlobPart::String(Cow::Borrowed("LA")),
                         GlobPart::AnyChar,
                     ]),

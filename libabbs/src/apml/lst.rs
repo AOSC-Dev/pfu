@@ -1,8 +1,21 @@
-//! APML lossless syntax tree.
+//! Lossless syntax tree representation of APML.
 //!
-//! This syntax tree is designed to correspond byte by byte
-//! to the source file in order to obtain a lossless reverse
+//! This LST is designed to correspond to the source file
+//! byte by byte in order to obtain a lossless reverse
 //! conversion capability to the source file.
+//! 
+//! To parse a source string into LST, see [`ApmlLst::parse`] and [`parser`][super::parser].
+//! 
+//! The root of LST is [`ApmlLst`], which is made up by a list of [tokens](Token).
+//! 
+//! A token may be a [`VariableDefinition`], a space-like character, or a newline.
+//! For example, `TEST=value\n` can be parsed into a [`VariableDefinition`] token and a newline token.
+//! 
+//! <div class="warning">
+//! The LST structure poses few of limitations and validations.
+//! It is your duty to make sure the generated LST is valid, or else
+//! the serialized APML may be invalid.
+//! </div>
 
 use std::{
     borrow::Cow,
@@ -10,15 +23,13 @@ use std::{
     rc::Rc,
 };
 
-use thiserror::Error;
-
-use super::glob::GlobPattern;
+use super::{pattern::BashPattern, parser::{apml_lst, ParseError}};
 
 /// A APML parse-tree, consisting of a list of tokens.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ApmlParseTree<'a>(pub Vec<Token<'a>>);
+pub struct ApmlLst<'a>(pub Vec<Token<'a>>);
 
-impl Display for ApmlParseTree<'_> {
+impl Display for ApmlLst<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for token in &self.0 {
             Display::fmt(token, f)?;
@@ -27,10 +38,15 @@ impl Display for ApmlParseTree<'_> {
     }
 }
 
-impl<'a> ApmlParseTree<'a> {
-    /// Parses a APML source string into lossless syntax tree.
+impl<'a> ApmlLst<'a> {
+    /// Parses a APML source string into a lossless syntax tree.
+    /// 
+    /// This is a wrapper calling [`apml_lst`] parser combinator,
+    /// while errors produced by the parser are converted into [`ParseError`],
+    /// and [`ParseError::UnexpectedSource`] is produced when
+    /// there are some unparsable texts in the input.
     pub fn parse(src: &'a str) -> Result<Self, ParseError> {
-        let (out, tree) = super::parser::apml_ast(src)?;
+        let (out, tree) = apml_lst(src)?;
         if !out.is_empty() {
             return Err(ParseError::UnexpectedSource {
                 pos: nom::Offset::offset(src, out) + 1,
@@ -40,21 +56,13 @@ impl<'a> ApmlParseTree<'a> {
     }
 }
 
-#[derive(Debug, Error)]
-pub enum ParseError {
-    #[error("Syntax error: {0}")]
-    SyntaxError(String),
-    #[error("Unexpected source at char {pos}")]
-    UnexpectedSource { pos: usize },
-}
-
 impl From<nom::Err<nom::error::Error<&str>>> for ParseError {
     fn from(value: nom::Err<nom::error::Error<&str>>) -> Self {
         Self::SyntaxError(value.to_string())
     }
 }
 
-/// A token in the AST.
+/// A token in the LST.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Token<'a> {
     /// A space-like character (`'<char>'`).
@@ -289,50 +297,50 @@ pub enum ExpansionModifier<'a> {
         length: Option<Cow<'a, str>>,
     },
     /// Stripping the shortest matching prefix (`"#<pattern>"`).
-    StripShortestPrefix(Rc<GlobPattern<'a>>),
+    StripShortestPrefix(Rc<BashPattern<'a>>),
     /// Stripping the longest matching prefix (`"##<pattern>"`).
-    StripLongestPrefix(Rc<GlobPattern<'a>>),
+    StripLongestPrefix(Rc<BashPattern<'a>>),
     /// Stripping the shortest matching suffix (`"%<pattern>"`).
-    StripShortestSuffix(Rc<GlobPattern<'a>>),
+    StripShortestSuffix(Rc<BashPattern<'a>>),
     /// Stripping the longest matching suffix (`"%%<pattern>"`).
-    StripLongestSuffix(Rc<GlobPattern<'a>>),
+    StripLongestSuffix(Rc<BashPattern<'a>>),
     /// Replacing the first match of a pattern with a text (`"/<pattern>[/<string>]"`).
     ///
     /// `string` can be ommitted, leaving `"/<pattern>"` structure,
     /// which removes the first match of the pattern.
     ReplaceOnce {
-        pattern: Rc<GlobPattern<'a>>,
+        pattern: Rc<BashPattern<'a>>,
         string: Option<Rc<Text<'a>>>,
     },
     /// Replacing the all matches of a pattern with a text (`"//<pattern>[/<string>]"`).
     ///
     /// `string` can be ommitted.
     ReplaceAll {
-        pattern: Rc<GlobPattern<'a>>,
+        pattern: Rc<BashPattern<'a>>,
         string: Option<Rc<Text<'a>>>,
     },
     /// Replacing the prefix of a pattern with a text (`"/#<pattern>[/<string>]"`).
     ///
     /// `string` can be ommitted.
     ReplacePrefix {
-        pattern: Rc<GlobPattern<'a>>,
+        pattern: Rc<BashPattern<'a>>,
         string: Option<Rc<Text<'a>>>,
     },
     /// Replacing the suffix of a pattern with a text (`"/%<pattern>[/<string>]"`).
     ///
     /// `string` can be ommitted.
     ReplaceSuffix {
-        pattern: Rc<GlobPattern<'a>>,
+        pattern: Rc<BashPattern<'a>>,
         string: Option<Rc<Text<'a>>>,
     },
     /// Upper-casify the first match of a pattern (`"^<pattern>"`).
-    UpperOnce(Rc<GlobPattern<'a>>),
+    UpperOnce(Rc<BashPattern<'a>>),
     /// Upper-casify the all matches of a pattern (`"^^<pattern>"`).
-    UpperAll(Rc<GlobPattern<'a>>),
+    UpperAll(Rc<BashPattern<'a>>),
     /// Lower-casify the first match of a pattern (`",<pattern>"`).
-    LowerOnce(Rc<GlobPattern<'a>>),
+    LowerOnce(Rc<BashPattern<'a>>),
     /// Lower-casify the all matches of a pattern (`",,<pattern>"`).
-    LowerAll(Rc<GlobPattern<'a>>),
+    LowerAll(Rc<BashPattern<'a>>),
     /// Producing errors when the variable is unset or null (`":?<text>"`).
     ErrorOnUnset(Rc<Text<'a>>),
     /// Returning the length of the variable.
@@ -433,9 +441,9 @@ mod test {
 
     #[test]
     fn test_apml_parse() {
-        let tree = ApmlParseTree::parse(r##"# Test APML"##).unwrap();
+        let tree = ApmlLst::parse(r##"# Test APML"##).unwrap();
         dbg!(&tree);
-        let tree = ApmlParseTree::parse(r##"aaa"##).unwrap_err();
+        let tree = ApmlLst::parse(r##"aaa"##).unwrap_err();
         dbg!(&tree);
     }
 }

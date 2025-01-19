@@ -8,11 +8,10 @@ use std::{
 use thiserror::Error;
 
 use super::{
-    ApmlContext,
     lst::{
-        ApmlParseTree, ArrayToken, ExpansionModifier, LiteralPart, ParseError, Text, TextUnit,
-        Token, VariableDefinition, VariableOp, VariableValue, Word,
-    },
+        ApmlLst, ArrayToken, ExpansionModifier, LiteralPart, Text, TextUnit, Token,
+        VariableDefinition, VariableOp, VariableValue, Word,
+    }, parser::ParseError, ApmlContext
 };
 
 #[derive(Error, Debug)]
@@ -29,8 +28,8 @@ pub enum EvalError {
 
 pub type Result<T> = std::result::Result<T, EvalError>;
 
-pub fn eval_parse_tree(apml: &mut ApmlContext, tree: &ApmlParseTree) -> Result<()> {
-    let ApmlParseTree(tokens) = tree;
+pub fn eval_parse_tree(apml: &mut ApmlContext, tree: &ApmlLst) -> Result<()> {
+    let ApmlLst(tokens) = tree;
     for token in tokens {
         eval_token(apml, token)?;
     }

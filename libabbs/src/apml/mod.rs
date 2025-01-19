@@ -3,10 +3,10 @@
 use std::{collections::HashMap, ops::Add};
 
 use eval::EvalError;
-use lst::ApmlParseTree;
+use lst::ApmlLst;
 
 pub mod eval;
-pub mod glob;
+pub mod pattern;
 pub mod parser;
 pub mod lst;
 
@@ -18,7 +18,7 @@ pub struct ApmlContext {
 
 impl ApmlContext {
     /// Evaluates a APML source code, expanding variables.
-    pub fn eval(tree: &ApmlParseTree) -> std::result::Result<Self, EvalError> {
+    pub fn eval(tree: &ApmlLst) -> std::result::Result<Self, EvalError> {
         let mut apml = ApmlContext {
             variables: HashMap::new(),
         };
@@ -28,7 +28,7 @@ impl ApmlContext {
 
     /// Parses a APML source code, expanding variables.
     pub fn parse(src: &str) -> std::result::Result<Self, EvalError> {
-        let tree = ApmlParseTree::parse(src)?;
+        let tree = ApmlLst::parse(src)?;
         Self::eval(&tree)
     }
 
