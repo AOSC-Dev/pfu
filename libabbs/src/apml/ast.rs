@@ -291,6 +291,10 @@ impl<'a> AstNode for Word<'a> {
                 } else {
                     let mut result = String::new();
                     for part in parts {
+                        if matches!(part, lst::LiteralPart::LineContinuation) {
+                            // skip LC nodes to avoid emitting useless nodes
+                            continue;
+                        }
                         emit_literal_part(part, &mut result);
                     }
                     Ok(Self::Literal(result.into()))
@@ -323,7 +327,7 @@ fn emit_literal_part(lst: &lst::LiteralPart, result: &mut String) {
     match lst {
         lst::LiteralPart::String(text) => result.push_str(text),
         lst::LiteralPart::Escaped(ch) => result.push(*ch),
-        lst::LiteralPart::LineContinuation => result.push('\n'),
+        lst::LiteralPart::LineContinuation => {}
     }
 }
 
@@ -861,7 +865,16 @@ mod test {
         assert_emit_lower(
             lst::Word::Literal(lst::LiteralPart::escape("test$$\n")),
             Word::Literal("test$$\n".into()),
-            "test\\$\\$\\\n",
+            "test\\$\\$\n",
+        );
+        assert_emit_lower(
+            lst::Word::Literal(vec![
+                lst::LiteralPart::String("test".into()),
+                lst::LiteralPart::LineContinuation,
+                lst::LiteralPart::String("test\ntest".into()),
+            ]),
+            Word::Literal("testtest\ntest".into()),
+            "testtest\ntest",
         );
     }
 

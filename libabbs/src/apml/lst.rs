@@ -287,12 +287,6 @@ impl LiteralPart<'_> {
                     buffer = String::new();
                 }
                 result.push(LiteralPart::Escaped(ch));
-            } else if ch == '\n' {
-                if !buffer.is_empty() {
-                    result.push(LiteralPart::String(Cow::Owned(buffer)));
-                    buffer = String::new();
-                }
-                result.push(LiteralPart::LineContinuation);
             } else {
                 buffer.push(ch);
             }
@@ -502,9 +496,7 @@ mod test {
             LiteralPart::String("asd".into()),
             LiteralPart::Escaped('$'),
             LiteralPart::Escaped('$'),
-            LiteralPart::String("f".into()),
-            LiteralPart::LineContinuation,
-            LiteralPart::String("g".into()),
+            LiteralPart::String("f\ng".into()),
             LiteralPart::Escaped('\\'),
         ]);
     }
