@@ -137,7 +137,6 @@ impl BashPattern<'_> {
         let mut result = String::from(before);
         self.build_regex(&mut result, greedy);
         result.push_str(after);
-        dbg!(&result);
         let result = RegexBuilder::new(&result)
             .case_insensitive(false)
             .multi_line(true)
