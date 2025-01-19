@@ -1,6 +1,9 @@
 //! ACBS Package Metadata Language (APML) syntax tree and parsers.
 
-use std::{collections::HashMap, ops::Add};
+use std::{
+    collections::HashMap,
+    ops::{Add, AddAssign, Index},
+};
 
 use ast::{ApmlAst, AstNode};
 use lst::ApmlLst;
@@ -19,6 +22,11 @@ pub struct ApmlContext {
 }
 
 impl ApmlContext {
+    /// Creates a empty APML context.
+    pub fn new() -> Self {
+        Default::default()
+    }
+
     /// Evaluates a APML AST, expanding variables.
     pub fn eval_ast(ast: &ApmlAst) -> std::result::Result<Self, ApmlError> {
         let mut apml = ApmlContext::default();
@@ -67,6 +75,15 @@ impl ApmlContext {
     /// Iterates over all variable names.
     pub fn keys(&self) -> impl Iterator<Item = &String> {
         self.variables.keys()
+    }
+}
+
+impl<S: AsRef<str>> Index<S> for ApmlContext {
+    type Output = VariableValue;
+
+    fn index(&self, index: S) -> &Self::Output {
+        self.get(index.as_ref())
+            .expect("no value found for variable")
     }
 }
 
@@ -181,10 +198,51 @@ impl Add for VariableValue {
     fn add(self, rhs: Self) -> Self::Output {
         match self {
             Self::String(val) => Self::String(format!("{}{}", val, rhs.into_string())),
-            Self::Array(mut val1) => {
-                val1.append(&mut rhs.into_array());
-                Self::Array(val1)
+            Self::Array(mut val) => {
+                val.append(&mut rhs.into_array());
+                Self::Array(val)
             }
+        }
+    }
+}
+
+impl AddAssign for VariableValue {
+    fn add_assign(&mut self, rhs: Self) {
+        match self {
+            Self::String(val) => val.push_str(&rhs.into_string()),
+            Self::Array(val) => val.append(&mut rhs.into_array()),
+        }
+    }
+}
+
+impl AddAssign<&Self> for VariableValue {
+    fn add_assign(&mut self, rhs: &Self) {
+        match self {
+            Self::String(val) => val.push_str(&rhs.as_string()),
+            Self::Array(val) => val.append(&mut rhs.as_array()),
+        }
+    }
+}
+
+impl<S: AsRef<str>> Add<S> for VariableValue {
+    type Output = Self;
+
+    fn add(self, rhs: S) -> Self::Output {
+        match self {
+            Self::String(val) => Self::String(format!("{}{}", val, rhs.as_ref().to_string())),
+            Self::Array(mut val) => {
+                val.push(rhs.as_ref().to_string());
+                Self::Array(val)
+            }
+        }
+    }
+}
+
+impl<S: AsRef<str>> AddAssign<S> for VariableValue {
+    fn add_assign(&mut self, rhs: S) {
+        match self {
+            Self::String(val) => val.push_str(rhs.as_ref()),
+            Self::Array(val) => val.push(rhs.as_ref().to_string()),
         }
     }
 }
@@ -192,6 +250,12 @@ impl Add for VariableValue {
 impl<S: AsRef<str>> From<S> for VariableValue {
     fn from(value: S) -> Self {
         Self::String(value.as_ref().to_string())
+    }
+}
+
+impl<S: AsRef<str>> PartialEq<S> for VariableValue {
+    fn eq(&self, other: &S) -> bool {
+        self.as_string() == other.as_ref()
     }
 }
 
@@ -204,6 +268,9 @@ mod test {
         assert_eq!(VariableValue::default().as_string(), "");
         assert_eq!(VariableValue::String("test".into()).as_string(), "test");
         assert_eq!(VariableValue::String("test".into()).into_string(), "test");
+        assert_eq!(VariableValue::String("test".into()).as_array(), vec![
+            "test".to_string()
+        ]);
         assert_eq!(
             VariableValue::String("".into()).as_array(),
             Vec::<String>::new()
@@ -219,10 +286,8 @@ mod test {
         assert!(VariableValue::String("".into()).is_empty());
         assert!(!VariableValue::String("test".into()).is_empty());
         assert_eq!(
-            VariableValue::String("test".into())
-                + "test".into()
-                + VariableValue::String("test".into()),
-            "testtesttest".into()
+            VariableValue::String("test".into()) + "test" + VariableValue::String("test".into()),
+            "testtesttest"
         );
     }
 
@@ -251,28 +316,53 @@ mod test {
         assert_eq!(
             VariableValue::Array(vec!["test".into()])
                 + VariableValue::Array(vec!["test".into()])
-                + VariableValue::Array(vec!["test".into()]),
+                + "test",
             VariableValue::Array(vec!["test".into(), "test".into(), "test".into()])
         );
     }
 
     #[test]
-    fn test_apml_parse() {
-        let apml = ApmlContext::eval_source(
-            r##"# Test APML
-
-PKGVER=8.2
-PKGDEP="x11-lib libdrm expat systemd elfutils libvdpau nettle \
-        libva wayland s2tc lm-sensors libglvnd llvm-runtime libclc"
-MESON_AFTER="-Ddri-drivers-path=/usr/lib/xorg/modules/dri \
-             -Db_ndebug=true" 
-MESON_AFTER__AMD64=" \
-             ${MESON_AFTER} \
-             -Dlibunwind=true"
-A="${b[@]}"
+    fn test_apml_context() {
+        let mut apml = ApmlContext::eval_source(
+            r##"
+VAR1=("test")
+VAR1+=("b")
+A="${VAR1[@]}"
+B="${VAR1[*]}"
 "##,
         )
         .unwrap();
         dbg!(&apml);
+        let apml2 = apml.clone();
+        assert_eq!(apml["VAR1"], "test b");
+        assert_eq!(apml["A"], "test b");
+        assert_eq!(apml["B"], "test b");
+        assert_eq!(apml.get("VAR1").unwrap(), &"test b");
+        assert_eq!(apml.read("VAR1"), "test b");
+        assert_eq!(apml.read("VAR2"), "");
+        assert_eq!(apml.get_mut("VAR1").unwrap(), &"test b");
+        *apml.get_mut("VAR1").unwrap() += "c";
+        *apml.get_mut("VAR1").unwrap() += std::convert::Into::<VariableValue>::into("c");
+        *apml.get_mut("VAR1").unwrap() += apml2.read("B");
+        *apml.get_mut("VAR1").unwrap() += apml2.read("VAR1");
+        *apml.get_mut("VAR1").unwrap() += apml2.read("nonexistence");
+        *apml.get_mut("VAR1").unwrap() += apml2.get("B").unwrap();
+        *apml.get_mut("VAR1").unwrap() += apml2.get("VAR1").unwrap();
+        assert_eq!(
+            apml.get_mut("VAR1").unwrap(),
+            &"test b c c test b test b test b test b"
+        );
+        *apml.get_mut("B").unwrap() += "c";
+        *apml.get_mut("B").unwrap() += apml2.get("B").unwrap();
+        *apml.get_mut("B").unwrap() += apml2.read("B");
+        assert_eq!(apml.get_mut("B").unwrap(), &"test bctest btest b");
+        assert_eq!(apml.remove("A"), Some("test b".into()));
+        assert_eq!(apml.remove("A"), None);
+        assert_eq!(apml.get("A"), None);
+        apml.insert("A".to_string(), "test".into());
+        assert_eq!(apml["A"], "test");
+        let mut keys = apml.keys().collect::<Vec<_>>();
+        keys.sort();
+        assert_eq!(keys, vec!["A", "B", "VAR1"])
     }
 }

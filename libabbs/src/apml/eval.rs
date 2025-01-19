@@ -141,11 +141,11 @@ fn apply_expansion_modifier(
         }
         ast::ExpansionModifier::StripShortestPrefix(pattern) => Ok(pattern
             .to_regex("^(?:", ")?(.*)$", false)?
-            .replace(&value.into_string(), MatchReplacer(2))
+            .replace(&value.into_string(), MatchReplacer(1))
             .to_string()),
         ast::ExpansionModifier::StripLongestPrefix(pattern) => Ok(pattern
             .to_regex("^(?:", ")?(.*?)$", true)?
-            .replace(&value.into_string(), MatchReplacer(2))
+            .replace(&value.into_string(), MatchReplacer(1))
             .to_string()),
         ast::ExpansionModifier::StripShortestSuffix(pattern) => Ok(pattern
             .to_regex("^(.*)(?:", ")$", false)?
@@ -209,5 +209,369 @@ fn apply_expansion_modifier(
                 Ok(value.into_string())
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use std::rc::Rc;
+
+    use crate::apml::{
+        ApmlContext,
+        ast::{ExpansionModifier, Text, Word},
+        eval::apply_expansion_modifier,
+        pattern::{BashPattern, GlobPart},
+    };
+
+    #[test]
+    fn test_expansion_modifier() {
+        let mut ctx = ApmlContext::new();
+        ctx.insert("A".to_string(), "test".into());
+
+        assert_eq!(
+            apply_expansion_modifier(
+                &ctx,
+                &ExpansionModifier::Substring {
+                    offset: 0,
+                    length: Some(10)
+                },
+                "123".into()
+            )
+            .unwrap(),
+            "123"
+        );
+        assert_eq!(
+            apply_expansion_modifier(
+                &ctx,
+                &ExpansionModifier::Substring {
+                    offset: 0,
+                    length: Some(-1)
+                },
+                "123".into()
+            )
+            .unwrap(),
+            "12"
+        );
+        assert_eq!(
+            apply_expansion_modifier(
+                &ctx,
+                &ExpansionModifier::Substring {
+                    offset: 1,
+                    length: None
+                },
+                "123".into()
+            )
+            .unwrap(),
+            "23"
+        );
+        let pattern1 = Rc::new(BashPattern(vec![
+            GlobPart::String("a".into()),
+            GlobPart::AnyString,
+        ]));
+        let pattern2 = Rc::new(BashPattern(vec![
+            GlobPart::String("a".into()),
+            GlobPart::AnyChar,
+        ]));
+        let text1 = Rc::new(Text(vec![Word::Literal("test".into())]));
+        assert_eq!(
+            apply_expansion_modifier(
+                &ctx,
+                &ExpansionModifier::StripShortestPrefix(pattern1.clone()),
+                "123".into()
+            )
+            .unwrap(),
+            "123"
+        );
+        assert_eq!(
+            apply_expansion_modifier(
+                &ctx,
+                &ExpansionModifier::StripShortestPrefix(pattern1.clone()),
+                "a123".into()
+            )
+            .unwrap(),
+            "123"
+        );
+        assert_eq!(
+            apply_expansion_modifier(
+                &ctx,
+                &ExpansionModifier::StripShortestPrefix(pattern1.clone()),
+                "123".into()
+            )
+            .unwrap(),
+            "123"
+        );
+        assert_eq!(
+            apply_expansion_modifier(
+                &ctx,
+                &ExpansionModifier::StripShortestSuffix(pattern1.clone()),
+                "a123a123".into()
+            )
+            .unwrap(),
+            "a123"
+        );
+        assert_eq!(
+            apply_expansion_modifier(
+                &ctx,
+                &ExpansionModifier::StripLongestPrefix(pattern1.clone()),
+                "123".into()
+            )
+            .unwrap(),
+            "123"
+        );
+        assert_eq!(
+            apply_expansion_modifier(
+                &ctx,
+                &ExpansionModifier::StripLongestPrefix(pattern1.clone()),
+                "a123".into()
+            )
+            .unwrap(),
+            ""
+        );
+        assert_eq!(
+            apply_expansion_modifier(
+                &ctx,
+                &ExpansionModifier::StripLongestSuffix(pattern1.clone()),
+                "123".into()
+            )
+            .unwrap(),
+            "123"
+        );
+        assert_eq!(
+            apply_expansion_modifier(
+                &ctx,
+                &ExpansionModifier::StripLongestSuffix(pattern1.clone()),
+                "a123a123".into()
+            )
+            .unwrap(),
+            ""
+        );
+        assert_eq!(
+            apply_expansion_modifier(
+                &ctx,
+                &ExpansionModifier::ReplaceOnce {
+                    pattern: pattern1.clone(),
+                    string: text1.clone()
+                },
+                "1a123a123".into()
+            )
+            .unwrap(),
+            "1test"
+        );
+        assert_eq!(
+            apply_expansion_modifier(
+                &ctx,
+                &ExpansionModifier::ReplaceOnce {
+                    pattern: pattern2.clone(),
+                    string: text1.clone()
+                },
+                "a123a123".into()
+            )
+            .unwrap(),
+            "test23a123"
+        );
+        assert_eq!(
+            apply_expansion_modifier(
+                &ctx,
+                &ExpansionModifier::ReplaceAll {
+                    pattern: pattern1.clone(),
+                    string: text1.clone()
+                },
+                "1a123a123".into()
+            )
+            .unwrap(),
+            "1test"
+        );
+        assert_eq!(
+            apply_expansion_modifier(
+                &ctx,
+                &ExpansionModifier::ReplaceAll {
+                    pattern: pattern2.clone(),
+                    string: text1.clone()
+                },
+                "a123a123".into()
+            )
+            .unwrap(),
+            "test23test23"
+        );
+        assert_eq!(
+            apply_expansion_modifier(
+                &ctx,
+                &ExpansionModifier::ReplacePrefix {
+                    pattern: pattern1.clone(),
+                    string: text1.clone()
+                },
+                "1a123a123".into()
+            )
+            .unwrap(),
+            "1a123a123"
+        );
+        assert_eq!(
+            apply_expansion_modifier(
+                &ctx,
+                &ExpansionModifier::ReplacePrefix {
+                    pattern: pattern1.clone(),
+                    string: text1.clone()
+                },
+                "a123a123".into()
+            )
+            .unwrap(),
+            "test"
+        );
+        assert_eq!(
+            apply_expansion_modifier(
+                &ctx,
+                &ExpansionModifier::ReplaceSuffix {
+                    pattern: pattern1.clone(),
+                    string: text1.clone()
+                },
+                "1a123a1231".into()
+            )
+            .unwrap(),
+            "1test"
+        );
+        assert_eq!(
+            apply_expansion_modifier(
+                &ctx,
+                &ExpansionModifier::ReplaceSuffix {
+                    pattern: pattern1.clone(),
+                    string: text1.clone()
+                },
+                "a123a123".into()
+            )
+            .unwrap(),
+            "test"
+        );
+        assert_eq!(
+            apply_expansion_modifier(
+                &ctx,
+                &ExpansionModifier::UpperOnce(pattern1.clone()),
+                "aa123abc123".into()
+            )
+            .unwrap(),
+            "AA123ABC123"
+        );
+        assert_eq!(
+            apply_expansion_modifier(
+                &ctx,
+                &ExpansionModifier::UpperOnce(pattern2.clone()),
+                "aa123abc123".into()
+            )
+            .unwrap(),
+            "AA123abc123"
+        );
+        assert_eq!(
+            apply_expansion_modifier(
+                &ctx,
+                &ExpansionModifier::UpperAll(pattern1.clone()),
+                "aa123abc123".into()
+            )
+            .unwrap(),
+            "AA123ABC123"
+        );
+        assert_eq!(
+            apply_expansion_modifier(
+                &ctx,
+                &ExpansionModifier::UpperAll(pattern2.clone()),
+                "aa123abc123".into()
+            )
+            .unwrap(),
+            "AA123ABc123"
+        );
+        assert_eq!(
+            apply_expansion_modifier(
+                &ctx,
+                &ExpansionModifier::LowerOnce(pattern1.clone()),
+                "aA123aBC123".into()
+            )
+            .unwrap(),
+            "aa123abc123"
+        );
+        assert_eq!(
+            apply_expansion_modifier(
+                &ctx,
+                &ExpansionModifier::LowerOnce(pattern2.clone()),
+                "aA123aBC123".into()
+            )
+            .unwrap(),
+            "aa123aBC123"
+        );
+        assert_eq!(
+            apply_expansion_modifier(
+                &ctx,
+                &ExpansionModifier::LowerAll(pattern1.clone()),
+                "aA123aBC123".into()
+            )
+            .unwrap(),
+            "aa123abc123"
+        );
+        assert_eq!(
+            apply_expansion_modifier(
+                &ctx,
+                &ExpansionModifier::LowerAll(pattern2.clone()),
+                "aA123aBc123".into()
+            )
+            .unwrap(),
+            "aa123abc123"
+        );
+        assert_eq!(
+            apply_expansion_modifier(
+                &ctx,
+                &ExpansionModifier::ErrorOnUnset(text1.clone()),
+                "test".into()
+            )
+            .unwrap(),
+            "test"
+        );
+        apply_expansion_modifier(
+            &ctx,
+            &ExpansionModifier::ErrorOnUnset(text1.clone()),
+            "".into(),
+        )
+        .unwrap_err();
+        assert_eq!(
+            apply_expansion_modifier(
+                &ctx,
+                &ExpansionModifier::Length,
+                "test".into()
+            )
+            .unwrap(),
+            "4"
+        );
+        assert_eq!(
+            apply_expansion_modifier(
+                &ctx,
+                &ExpansionModifier::WhenUnset(text1.clone()),
+                "aaa".into()
+            )
+            .unwrap(),
+            "aaa"
+        );
+        assert_eq!(
+            apply_expansion_modifier(
+                &ctx,
+                &ExpansionModifier::WhenUnset(text1.clone()),
+                "".into()
+            )
+            .unwrap(),
+            "test"
+        );
+        assert_eq!(
+            apply_expansion_modifier(
+                &ctx,
+                &ExpansionModifier::WhenSet(text1.clone()),
+                "aaa".into()
+            )
+            .unwrap(),
+            "test"
+        );
+        assert_eq!(
+            apply_expansion_modifier(
+                &ctx,
+                &ExpansionModifier::WhenSet(text1.clone()),
+                "".into()
+            )
+            .unwrap(),
+            ""
+        );
     }
 }
