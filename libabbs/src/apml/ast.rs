@@ -11,7 +11,7 @@
 //! AST representation.
 //!
 //! ASTs are guaranteed in structure to be grammatically valid,
-//! while the evaluation process may fail due to context-dependenct
+//! while the evaluation process may fail due to context-dependent
 //! constraints such as the `${name:?text}` expansion modifier.
 //!
 //! [`ApmlAst`] cannot be parsed directly from string. Instead, a parsed LST
@@ -262,7 +262,7 @@ fn emit_text_unit<'a>(lst: &lst::TextUnit<'a>) -> EmitResult<Vec<Word<'a>>> {
 /// A word is a part of a text.
 ///
 /// When emitted from [`lst::Word`], the subcommand variant is emitted as a literal,
-/// literal strings are concatened as one string, and unbraced and braced variable expansions
+/// literal strings are concatenated as one string, and unbraced and braced variable expansions
 /// are unified.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Word<'a> {
@@ -407,8 +407,6 @@ pub enum ExpansionModifier<'a> {
         string: Rc<Text<'a>>,
     },
     /// Replacing the suffix of a pattern with a text.
-    ///
-    /// `string` can be ommitted.
     ReplaceSuffix {
         pattern: Rc<BashPattern<'a>>,
         string: Rc<Text<'a>>,

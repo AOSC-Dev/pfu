@@ -98,7 +98,7 @@ impl Display for Token<'_> {
 pub struct VariableDefinition<'a> {
     /// Name of the variable.
     pub name: Cow<'a, str>,
-    /// Bianry operator.
+    /// Binary operator.
     pub op: VariableOp,
     /// Value of the variable.
     pub value: VariableValue<'a>,
@@ -347,7 +347,7 @@ pub enum ExpansionModifier<'a> {
     StripLongestSuffix(Rc<BashPattern<'a>>),
     /// Replacing the first match of a pattern with a text (`"/<pattern>[/<string>]"`).
     ///
-    /// `string` can be ommitted, leaving `"/<pattern>"` structure,
+    /// `string` can be omitted, leaving `"/<pattern>"` structure,
     /// which removes the first match of the pattern.
     ReplaceOnce {
         pattern: Rc<BashPattern<'a>>,
@@ -355,21 +355,21 @@ pub enum ExpansionModifier<'a> {
     },
     /// Replacing the all matches of a pattern with a text (`"//<pattern>[/<string>]"`).
     ///
-    /// `string` can be ommitted.
+    /// `string` can be omitted.
     ReplaceAll {
         pattern: Rc<BashPattern<'a>>,
         string: Option<Rc<Text<'a>>>,
     },
     /// Replacing the prefix of a pattern with a text (`"/#<pattern>[/<string>]"`).
     ///
-    /// `string` can be ommitted.
+    /// `string` can be omitted.
     ReplacePrefix {
         pattern: Rc<BashPattern<'a>>,
         string: Option<Rc<Text<'a>>>,
     },
     /// Replacing the suffix of a pattern with a text (`"/%<pattern>[/<string>]"`).
     ///
-    /// `string` can be ommitted.
+    /// `string` can be omitted.
     ReplaceSuffix {
         pattern: Rc<BashPattern<'a>>,
         string: Option<Rc<Text<'a>>>,
@@ -394,7 +394,7 @@ pub enum ExpansionModifier<'a> {
     WhenSet(Rc<Text<'a>>),
     /// Expands to array elements (`"[@]"`).
     ArrayElements,
-    /// Expands to a string of array elements concatened with space (`"[*]"`).
+    /// Expands to a string of array elements concatenated with space (`"[*]"`).
     SingleWordElements,
 }
 

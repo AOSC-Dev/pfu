@@ -4,7 +4,7 @@
 //! providing enough information to fixers.
 //!
 //! Different fixers require different kind of information, for example,
-//! the simpliest [crate::lint::src::LintPreferGitSources] linter, requires
+//! the simplest [crate::lint::src::LintPreferGitSources] linter, requires
 //! only [SpecFile] to work. Evaluation of context information
 //! can sometimes involve network requests or other heavy calculation,
 //! thus, [Context] is designed to be dynamic, leaving all contexts optional.
@@ -125,7 +125,7 @@ pub trait FromContext<'a>
 where
     Self: Sized,
 {
-    /// Resolves informations from the context.
+    /// Resolves information from the context.
     fn from_context(ctx: &'a Context) -> Result<Self, ContextError>;
 }
 
@@ -244,7 +244,7 @@ where
     }
 }
 
-/// A provider for one or more context informations.
+/// A provider for one or more context information.
 #[async_trait]
 pub trait ContextProvider {
     /// Types of contexts that can be provided.
