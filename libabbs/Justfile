@@ -1,38 +1,14 @@
 build-examples:
     cargo build --examples
 
-apml-lex-all-specs tree: build-examples
-    #!/usr/bin/bash
-    set -euo pipefail
-    shopt -s globstar
-    for file in "{{tree}}"/**/spec; do
-        echo "$file"
-        QUIET=y ../target/debug/examples/apml-lex "$file"
-    done
+apml-lex-all tree: build-examples
+    QUIET=y find "{{tree}}" '(' -name 'spec' -or -name 'defines*' ')' \
+        -print -exec ../target/debug/examples/apml-lex '{}' ';'
 
-apml-lex-all-defines tree: build-examples
-    #!/usr/bin/bash
-    set -euo pipefail
-    shopt -s globstar
-    for file in "{{tree}}"/**/defines; do
-        echo "$file"
-        QUIET=y ../target/debug/examples/apml-lex "$file"
-    done
+apml-emit-all tree: build-examples
+    QUIET=y find "{{tree}}" '(' -name 'spec' -or -name 'defines*' ')' \
+        -print -exec ../target/debug/examples/apml-emit '{}' ';'
 
-apml-eval-all-specs tree: build-examples
-    #!/usr/bin/bash
-    set -euo pipefail
-    shopt -s globstar
-    for file in "{{tree}}"/**/spec; do
-        echo "$file"
-        QUIET=y ../target/debug/examples/apml-eval "$file"
-    done
-
-apml-eval-all-defines tree: build-examples
-    #!/usr/bin/bash
-    set -euo pipefail
-    shopt -s globstar
-    for file in "{{tree}}"/**/defines; do
-        echo "$file"
-        QUIET=y ../target/debug/examples/apml-eval "$file"
-    done
+apml-eval-all tree: build-examples
+    QUIET=y find "{{tree}}" '(' -name 'spec' -or -name 'defines*' ')' \
+        -print -exec ../target/debug/examples/apml-eval '{}' ';'
