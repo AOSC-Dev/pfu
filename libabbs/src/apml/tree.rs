@@ -10,6 +10,8 @@ use std::{
     rc::Rc,
 };
 
+use thiserror::Error;
+
 use super::glob::GlobPattern;
 
 /// A APML parse-tree, consisting of a list of tokens.
@@ -27,15 +29,28 @@ impl Display for ApmlParseTree<'_> {
 
 impl<'a> ApmlParseTree<'a> {
     /// Parses a APML source string into lossless syntax tree.
-    pub fn parse(src: &'a str) -> Result<Self, nom::Err<nom::error::Error<&'a str>>> {
-        let (src, tree) = super::parser::apml_ast(src)?;
-        if !src.is_empty() {
-            return Err(nom::Err::Failure(nom::error::make_error(
-                src,
-                nom::error::ErrorKind::Fail,
-            )));
+    pub fn parse(src: &'a str) -> Result<Self, ParseError> {
+        let (out, tree) = super::parser::apml_ast(src)?;
+        if !out.is_empty() {
+            return Err(ParseError::UnexpectedSource {
+                pos: nom::Offset::offset(src, out) + 1,
+            });
         }
         Ok(tree)
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum ParseError {
+    #[error("Syntax error: {0}")]
+    SyntaxError(String),
+    #[error("Unexpected source at char {pos}")]
+    UnexpectedSource { pos: usize },
+}
+
+impl From<nom::Err<nom::error::Error<&str>>> for ParseError {
+    fn from(value: nom::Err<nom::error::Error<&str>>) -> Self {
+        Self::SyntaxError(value.to_string())
     }
 }
 
@@ -410,5 +425,17 @@ impl Display for ArrayToken<'_> {
             }
             ArrayToken::Element(text) => Display::fmt(text, f),
         }
+    }
+}
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_apml_parse() {
+        let tree = ApmlParseTree::parse(r##"# Test APML"##).unwrap();
+        dbg!(&tree);
+        let tree = ApmlParseTree::parse(r##"aaa"##).unwrap_err();
+        dbg!(&tree);
     }
 }

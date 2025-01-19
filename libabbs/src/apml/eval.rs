@@ -10,27 +10,21 @@ use thiserror::Error;
 use super::{
     ApmlContext,
     tree::{
-        ApmlParseTree, ArrayToken, ExpansionModifier, LiteralPart, Text, TextUnit, Token,
-        VariableDefinition, VariableOp, VariableValue, Word,
+        ApmlParseTree, ArrayToken, ExpansionModifier, LiteralPart, ParseError, Text, TextUnit,
+        Token, VariableDefinition, VariableOp, VariableValue, Word,
     },
 };
 
 #[derive(Error, Debug)]
 pub enum EvalError {
+    #[error(transparent)]
+    ParseError(#[from] ParseError),
     #[error("Unparsable integer: {0}")]
     UnparsableInt(#[from] ParseIntError),
     #[error("Glob-as-regex error: {0}")]
     RegexError(#[from] regex::Error),
     #[error("Required variable is unset: {0}")]
     Unset(String),
-    #[error("Syntax error: {0}")]
-    SyntaxError(String),
-}
-
-impl From<nom::Err<nom::error::Error<&str>>> for EvalError {
-    fn from(value: nom::Err<nom::error::Error<&str>>) -> Self {
-        Self::SyntaxError(value.to_string())
-    }
 }
 
 pub type Result<T> = std::result::Result<T, EvalError>;
