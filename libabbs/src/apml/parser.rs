@@ -374,7 +374,7 @@ ${1/a/a}${1//a?a/$a}${1/#a/b}${1/%a/b}${1^*}${1^^*}${1,*}\
 ${1,,*}${1:?err}${1:-unset}${1:+set}${1/a}${1//a}${1/#a}\
 ${1/%a}${1//a/}"
 b+=("-a" \
-    -b "${a[@]}" "${a[*]}" #asdf
+    -b "${a[@]}" "${a[*]}$(a)" #asdf
 )
 "##;
         assert_eq!(
@@ -651,7 +651,12 @@ b+=("-a" \
                                 Word::BracedVariable(BracedExpansion {
                                     name: Cow::Borrowed("a"),
                                     modifier: Some(ExpansionModifier::SingleWordElements)
-                                })
+                                }),
+                                Word::Subcommand(vec![ArrayToken::Element(Rc::new(Text(vec![
+                                    TextUnit::Unquoted(vec![Word::Literal(vec![
+                                        LiteralPart::String(Cow::Borrowed("a"))
+                                    ])])
+                                ])))]),
                             ])]))),
                             ArrayToken::Spacy(' '),
                             ArrayToken::Comment(Cow::Borrowed("asdf")),
