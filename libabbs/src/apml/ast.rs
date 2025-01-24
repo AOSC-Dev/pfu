@@ -57,7 +57,7 @@ pub enum EmitError {
     MissingArrayElementDelimiter,
 }
 
-type EmitResult<T> = std::result::Result<T, EmitError>;
+pub type EmitResult<T> = std::result::Result<T, EmitError>;
 
 /// A APML abstract syntax tree.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -256,6 +256,18 @@ fn emit_text_unit<'a>(lst: &lst::TextUnit<'a>) -> EmitResult<Vec<Word<'a>>> {
             Ok(result)
         }
         lst::TextUnit::SingleQuote(text) => Ok(vec![Word::Literal(text.clone())]),
+    }
+}
+
+impl<'a> From<String> for Text<'a> {
+    fn from(value: String) -> Self {
+        Self(vec![Word::Literal(value.into())])
+    }
+}
+
+impl<'a> From<&'static str> for Text<'a> {
+    fn from(value: &'static str) -> Self {
+        Self(vec![Word::Literal(value.into())])
     }
 }
 

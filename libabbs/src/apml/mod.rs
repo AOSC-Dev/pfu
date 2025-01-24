@@ -11,6 +11,7 @@ use lst::ApmlLst;
 use thiserror::Error;
 
 pub mod ast;
+pub mod editor;
 pub mod eval;
 pub mod lst;
 pub mod parser;
