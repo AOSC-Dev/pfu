@@ -529,12 +529,7 @@ mod test {
         )
         .unwrap_err();
         assert_eq!(
-            apply_expansion_modifier(
-                &ctx,
-                &ExpansionModifier::Length,
-                "test".into()
-            )
-            .unwrap(),
+            apply_expansion_modifier(&ctx, &ExpansionModifier::Length, "test".into()).unwrap(),
             "4"
         );
         assert_eq!(
@@ -565,12 +560,8 @@ mod test {
             "test"
         );
         assert_eq!(
-            apply_expansion_modifier(
-                &ctx,
-                &ExpansionModifier::WhenSet(text1.clone()),
-                "".into()
-            )
-            .unwrap(),
+            apply_expansion_modifier(&ctx, &ExpansionModifier::WhenSet(text1.clone()), "".into())
+                .unwrap(),
             ""
         );
     }

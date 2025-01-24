@@ -250,7 +250,7 @@ impl<S: AsRef<str>> Add<S> for VariableValue {
 
     fn add(self, rhs: S) -> Self::Output {
         match self {
-            Self::String(val) => Self::String(format!("{}{}", val, rhs.as_ref().to_string())),
+            Self::String(val) => Self::String(format!("{}{}", val, rhs.as_ref())),
             Self::Array(mut val) => {
                 val.push(rhs.as_ref().to_string());
                 Self::Array(val)
