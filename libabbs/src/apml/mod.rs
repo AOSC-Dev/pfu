@@ -16,6 +16,7 @@ pub mod eval;
 pub mod lst;
 pub mod parser;
 pub mod pattern;
+pub mod value;
 
 /// A evaluated APML context.
 #[derive(Debug, PartialEq, Eq, Clone, Default)]
