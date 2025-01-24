@@ -157,7 +157,7 @@ impl<'a> ApmlEditor<'a> {
     /// Spaces and comments before the most near following newline will
     /// be stripped. If there is comment before the line of variable definition
     /// and the variable definition has been followed by two newlines,
-    /// All preceeding comments will be stripped as well.
+    /// All preceding comments will be stripped as well.
     pub fn remove_var(&mut self, index: usize) {
         // scan of following spaces and newline
         let after = self
