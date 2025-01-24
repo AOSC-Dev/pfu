@@ -26,6 +26,12 @@ pub enum ParseError {
     UnexpectedSource { pos: usize },
 }
 
+impl From<nom::Err<nom::error::Error<&str>>> for ParseError {
+    fn from(value: nom::Err<nom::error::Error<&str>>) -> Self {
+        Self::SyntaxError(value.to_string())
+    }
+}
+
 /// Parses a complete APML source into LST.
 pub fn apml_lst(i: &str) -> IResult<&str, ApmlLst> {
     map(many0(token), ApmlLst)(i)

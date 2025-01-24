@@ -59,12 +59,6 @@ impl<'a> ApmlLst<'a> {
     }
 }
 
-impl From<nom::Err<nom::error::Error<&str>>> for ParseError {
-    fn from(value: nom::Err<nom::error::Error<&str>>) -> Self {
-        Self::SyntaxError(value.to_string())
-    }
-}
-
 /// A token in the LST.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Token<'a> {

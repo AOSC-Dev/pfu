@@ -9,6 +9,7 @@ homepage.workspace = true
 repository.workspace = true
 
 [dependencies]
+kstring = "2.0.2"
 nom = { version = "7.1.3", optional = true }
 regex = { version = "1.11.1", optional = true }
 thiserror = "2.0.9"
