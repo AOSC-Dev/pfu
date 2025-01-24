@@ -154,9 +154,8 @@ impl VariableValue {
 
     /// Returns the value as an array.
     ///
-    /// If the value is a string value, it will be converted into a
-    /// single-element array. If the string is empty, it will be
-    /// converted into a empty array.
+    /// If the value is a string value, it will be split by spaces.
+    /// If the string is empty, it will be converted into a empty array.
     #[must_use]
     pub fn as_array(&self) -> Vec<String> {
         match self {
@@ -164,7 +163,7 @@ impl VariableValue {
                 if text.is_empty() {
                     vec![]
                 } else {
-                    vec![text.to_owned()]
+                    self.clone().into_array()
                 }
             }
             VariableValue::Array(els) => els.to_owned(),
@@ -173,9 +172,8 @@ impl VariableValue {
 
     /// Returns the value as an array.
     ///
-    /// If the value is a string value, it will be converted into a
-    /// single-element array. If the string is empty, it will be
-    /// converted into a empty array.
+    /// If the value is a string value, it will be split by spaces.
+    /// If the string is empty, it will be converted into a empty array.
     #[must_use]
     pub fn into_array(self) -> Vec<String> {
         match self {
@@ -183,7 +181,25 @@ impl VariableValue {
                 if text.is_empty() {
                     vec![]
                 } else {
-                    vec![text]
+                    let mut entries = Vec::new();
+                    let mut buffer = String::with_capacity(23);
+                    for char in text.chars() {
+                        match char {
+                            ' ' | '\t' | '\n' => {
+                                if !buffer.is_empty() {
+                                    entries.push(buffer);
+                                    buffer = String::with_capacity(23);
+                                }
+                            }
+                            _ => {
+                                buffer.push(char);
+                            }
+                        }
+                    }
+                    if !buffer.is_empty() {
+                        entries.push(buffer);
+                    }
+                    entries
                 }
             }
             VariableValue::Array(els) => els,
@@ -342,6 +358,20 @@ mod test {
             format!("{}", VariableValue::String("test'test".into())),
             "'test'\\''test'"
         );
+
+        let long_str = "1234567890123456789012345678901234567890123456789012345";
+        let array = VariableValue::String(long_str.to_string()).into_array();
+        assert_eq!(array.len(), 1);
+        assert_eq!(array, vec![long_str.to_string()]);
+        let array =
+            VariableValue::String(format!("{long_str} {long_str} 1 {long_str}")).into_array();
+        assert_eq!(array.len(), 4);
+        assert_eq!(array, vec![
+            long_str.to_string(),
+            long_str.to_string(),
+            "1".to_string(),
+            long_str.to_string()
+        ]);
     }
 
     #[test]
