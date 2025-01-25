@@ -59,6 +59,7 @@ impl Session {
 		})
 	}
 
+	#[allow(clippy::await_holding_lock)]
 	pub async fn source_fs(&self) -> Result<Arc<opendal::Operator>> {
 		if let Some(result) = self.source_storage.read().as_ref() {
 			Ok(result.clone())
