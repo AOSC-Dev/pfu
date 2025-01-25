@@ -18,8 +18,7 @@ pub mod selector;
 #[derive(Parser, Debug)]
 #[command(
 	version,
-	about,
-	long_about = "PackFixerUpper: bring up AOSC OS packages magically"
+	about = "PackFixerUpper: bring up AOSC OS packages magically"
 )]
 struct Args {
 	/// Path of ABBS tree.
@@ -50,6 +49,9 @@ struct Args {
 	#[cfg(debug_assertions)]
 	#[arg(long)]
 	debug: bool,
+	/// Enable less logging.
+	#[arg(short, long)]
+	quiet: bool,
 }
 
 #[tokio::main]
@@ -102,14 +104,16 @@ async fn main() -> Result<()> {
 
 	let start_time = SystemTime::now();
 	for (index, package) in packages.into_iter().enumerate() {
-		eprintln!(
-			"{} [{}/{}] {}/{}",
-			style("    Checking").green().bold(),
-			index + 1,
-			total_packages,
-			package.section(),
-			package.name()
-		);
+		if !args.quiet {
+			eprintln!(
+				"{} [{}/{}] {}/{}",
+				style("    Checking").green().bold(),
+				index + 1,
+				total_packages,
+				package.section(),
+				package.name()
+			);
+		}
 		let name = package.name().to_string();
 		let mut sess = match Session::new(abbs.clone(), package) {
 			Ok(sess) => sess,
