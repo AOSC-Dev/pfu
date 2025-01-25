@@ -82,7 +82,11 @@ async fn main() -> Result<()> {
 		.collect::<Vec<_>>();
 
 	let total_packages = packages.len();
-	info!("Selected {} packages", total_packages);
+	let total_linters = linters.len();
+	info!(
+		"Selected {} packages, {} linters",
+		total_packages, total_linters
+	);
 
 	let start_time = SystemTime::now();
 	for (index, package) in packages.into_iter().enumerate() {
@@ -126,10 +130,10 @@ async fn main() -> Result<()> {
 
 	let elapsed = start_time.elapsed()?;
 	eprintln!(
-		"{} {} packages, {} checks in {}s",
+		"{} {} packages, {} linters in {}s",
 		style("    Finished").green().bold(),
 		total_packages,
-		total_packages,
+		total_linters,
 		elapsed.as_secs(),
 	);
 
