@@ -18,13 +18,13 @@ declare_linter! {
 	SrcsLinter,
 	[
 		"unknown-fetch-tag",
-		"prefer-handler-srcs",
+		"prefer-specific-src-handler",
 	]
 }
 
 declare_lint! {
-	pub UNKNOWN_SRC_HANDLER_LINT,
-	"unknown-handler-in-srcs",
+	pub UNKNOWN_FETCH_TAG_LINT,
+	"unknown-fetch-tag",
 	Error,
 	"unknown handler found in SRCS"
 }
@@ -144,7 +144,7 @@ impl Linter for SrcsLinter {
 					"git" | "svn" | "bzr" | "hg" | "fossil" | "file"
 					| "pypi" | "none" => {}
 					_ => {
-						LintMessage::new(UNKNOWN_SRC_HANDLER_LINT)
+						LintMessage::new(UNKNOWN_FETCH_TAG_LINT)
 							.note(format!(
 								"source {} with tag {} is unsupported",
 								idx, un.tag
