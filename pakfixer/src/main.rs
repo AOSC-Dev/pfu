@@ -43,12 +43,19 @@ struct Args {
 	/// Linter selector directives.
 	#[arg(short = 'W')]
 	directives: Vec<String>,
+	/// Enable more logging.
+	#[cfg(debug_assertions)]
+	#[arg(long)]
+	debug: bool,
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
 	let args = Args::parse();
-	logger::init()?;
+	#[cfg(debug_assertions)]
+	logger::init(args.debug)?;
+	#[cfg(not(debug_assertions))]
+	logger::init(false)?;
 
 	let abbs = AbbsTree::new(
 		args.tree

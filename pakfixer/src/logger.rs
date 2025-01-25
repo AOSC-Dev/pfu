@@ -6,11 +6,11 @@ use kstring::KString;
 use libpfu::message::LintMessage;
 use log::{Level, LevelFilter, Metadata, Record};
 
-struct Logger;
+struct Logger(Level);
 
 impl log::Log for Logger {
 	fn enabled(&self, metadata: &Metadata) -> bool {
-		metadata.level() <= Level::Info
+		metadata.level() <= self.0
 	}
 
 	fn log(&self, record: &Record) {
@@ -52,9 +52,19 @@ impl log::Log for Logger {
 	fn flush(&self) {}
 }
 
-pub fn init() -> Result<()> {
-	log::set_boxed_logger(Box::new(Logger))
-		.map(|()| log::set_max_level(LevelFilter::Info))?;
+pub fn init(debug: bool) -> Result<()> {
+	log::set_boxed_logger(Box::new(Logger(if debug {
+		log::Level::Debug
+	} else {
+		log::Level::Info
+	})))
+	.map(|_| {
+		log::set_max_level(if debug {
+			LevelFilter::Debug
+		} else {
+			LevelFilter::Info
+		})
+	})?;
 	Ok(())
 }
 
