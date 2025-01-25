@@ -26,7 +26,7 @@ struct Args {
 	#[arg(short = 'C', env = "ABBS_TREE")]
 	tree: Option<PathBuf>,
 	/// Package name.
-	#[arg(required_unless_present_any = ["section", "regex"])]
+	#[arg(required_unless_present_any = ["section", "regex", "world"])]
 	name: Option<String>,
 	/// Process all packages in a section.
 	#[arg(short, long)]
@@ -34,6 +34,9 @@ struct Args {
 	/// Process all packages matching the given regex.
 	#[arg(short, long)]
 	regex: Option<Regex>,
+	/// Process all packages in the tree.
+	#[arg(long)]
+	world: bool,
 	/// Dry run.
 	#[arg(long)]
 	dry: bool,
@@ -73,6 +76,8 @@ async fn main() -> Result<()> {
 			.into_par_iter()
 			.filter(|pkg| regex.is_match(pkg.name()))
 			.collect()
+	} else if args.world {
+		abbs.all_packages()?
 	} else {
 		bail!("Package name must be specified")
 	};
@@ -119,7 +124,7 @@ async fn main() -> Result<()> {
 		sess.dry = args.dry;
 		sess.offline = args.offline;
 		for (ident, linter) in &linters {
-			match linter.apply(&mut sess).await {
+			match linter.apply(&sess).await {
 				Ok(_) => {
 					debug!("{} finished on {}", ident, name);
 				}
