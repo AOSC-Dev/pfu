@@ -29,7 +29,7 @@ pub struct Session {
 	pub subpackages: Vec<SubpackageSession>,
 
 	/// Lazily initialized source
-	source_storage: RwLock<Option<Arc<opendal::Operator>>>,
+	source_storage: tokio::sync::RwLock<Option<Arc<opendal::Operator>>>,
 	/// Receiver for lint messages.
 	pub(crate) outbox: Mutex<Vec<LintMessage>>,
 }
@@ -54,17 +54,17 @@ impl Session {
 			offline: false,
 			spec: RwLock::new(spec),
 			subpackages,
-			source_storage: RwLock::default(),
+			source_storage: tokio::sync::RwLock::default(),
 			outbox: Mutex::new(Vec::new()),
 		})
 	}
 
 	#[allow(clippy::await_holding_lock)]
 	pub async fn source_fs(&self) -> Result<Arc<opendal::Operator>> {
-		if let Some(result) = self.source_storage.read().as_ref() {
+		if let Some(result) = self.source_storage.read().await.as_ref() {
 			Ok(result.clone())
 		} else {
-			let mut write = self.source_storage.write();
+			let mut write = self.source_storage.write().await;
 			if let Some(result) = write.as_ref() {
 				Ok(result.clone())
 			} else {

@@ -18,3 +18,4 @@ opendal = "0.51.1"
 ouroboros = "0.18.5"
 parking_lot = "0.12.3"
 reqwest = { version = "0.12.9", default-features = false }
+tokio = { version = "1.43.0", features = ["sync"] }
