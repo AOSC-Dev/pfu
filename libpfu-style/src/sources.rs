@@ -80,22 +80,19 @@ impl Linter for SrcsLinter {
 	async fn apply(&self, sess: &Session) -> Result<()> {
 		for mut apml in walk_apml(sess) {
 			debug!("Looking for less-specific handlers in SRCS in {:?}", apml);
-			let (srcs, srcs_idx) = apml.with_upgraded(|apml| {
-				(
-					apml.ctx().map(|ctx| ctx.read("SRCS").into_string()),
-					apml.read_with_editor(|editor| {
-						editor.find_var("SRCS").unzip().0.unwrap_or_default()
-					}),
-				)
+			let srcs = apml.with_upgraded(|apml| {
+				apml.ctx().map(|ctx| ctx.read("SRCS").into_string())
 			});
 			let mut srcs = StringArray::from(srcs?);
 
 			for (idx, src) in srcs.iter_mut().enumerate() {
 				if src.contains("http://") {
-					LintMessage::new(INSECURE_SRC_URL_LINT)
-						.note(format!("source {} should use https://", idx,))
-						.snippet(Snippet::new_index(sess, &apml, srcs_idx))
-						.emit(sess);
+					apml.with_upgraded(|apml| {
+						LintMessage::new(INSECURE_SRC_URL_LINT)
+							.note(format!("source {} should use https://", idx))
+							.snippet(Snippet::new_variable(sess, apml, "SRCS"))
+							.emit(sess);
+					});
 					apml.with_upgraded(|apml| {
 						apml.with_text(|text| {
 							text.replace("http://", "https://")
@@ -115,17 +112,19 @@ impl Linter for SrcsLinter {
 					"tarball" | "tbl" => {
 						if let Some(arg) = un.argument {
 							if let Some(cap) = REGEX_PYPI.captures(&arg) {
-								LintMessage::new(
-									PREFER_SPECIFIC_SRC_HANDLER_LINT,
-								)
-								.note(format!(
-									"source {} should be replaced with pypi::{}",
-									idx, &cap["name"],
-								))
-								.snippet(Snippet::new_index(
-									sess, &apml, srcs_idx,
-								))
-								.emit(sess);
+								apml.with_upgraded(|apml| {
+									LintMessage::new(
+										PREFER_SPECIFIC_SRC_HANDLER_LINT,
+									)
+									.note(format!(
+										"source {} should be replaced with pypi::{}",
+										idx, &cap["name"],
+									))
+									.snippet(Snippet::new_variable(
+										sess, apml, "SRCS",
+									))
+									.emit(sess);
+								});
 								if !sess.dry {
 									apml.with_upgraded(|apml| {
 										apml.with_text(|text| {
@@ -141,17 +140,19 @@ impl Linter for SrcsLinter {
 							} else if let Some(cap) =
 								REGEX_GH_TAR.captures(&arg)
 							{
-								LintMessage::new(
-									PREFER_SPECIFIC_SRC_HANDLER_LINT,
-								)
-								.note(format!(
-									"source {} should be replaced with git::https://github.com/{}/{}.git",
-									idx, &cap["user"], &cap["repo"],
-								))
-								.snippet(Snippet::new_index(
-									sess, &apml, srcs_idx,
-								))
-								.emit(sess);
+								apml.with_upgraded(|apml| {
+									LintMessage::new(
+										PREFER_SPECIFIC_SRC_HANDLER_LINT,
+									)
+									.note(format!(
+										"source {} should be replaced with git::https://github.com/{}/{}.git",
+										idx, &cap["user"], &cap["repo"],
+									))
+									.snippet(Snippet::new_variable(
+										sess, apml, "SRCS",
+									))
+									.emit(sess);
+								});
 								if !sess.dry {
 									apml.with_upgraded(|apml| {
 										apml.with_text(|text| {
@@ -170,13 +171,17 @@ impl Linter for SrcsLinter {
 					"git" | "svn" | "bzr" | "hg" | "fossil" | "file"
 					| "pypi" | "none" => {}
 					_ => {
-						LintMessage::new(UNKNOWN_FETCH_TAG_LINT)
-							.note(format!(
-								"source {} with tag {} is unsupported",
-								idx, un.tag
-							))
-							.snippet(Snippet::new_index(sess, &apml, srcs_idx))
-							.emit(sess);
+						apml.with_upgraded(|apml| {
+							LintMessage::new(UNKNOWN_FETCH_TAG_LINT)
+								.note(format!(
+									"source {} with tag {} is unsupported",
+									idx, un.tag
+								))
+								.snippet(Snippet::new_variable(
+									sess, apml, "SRCS",
+								))
+								.emit(sess);
+						});
 					}
 				}
 			}
