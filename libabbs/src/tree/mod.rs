@@ -216,7 +216,7 @@ impl Eq for AbbsSourcePackage {}
 impl PartialOrd for AbbsSourcePackage {
 	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
 		if self.tree().as_path() == other.tree().as_path() {
-			self.name().partial_cmp(&other.name())
+			self.name().partial_cmp(other.name())
 		} else {
 			None
 		}
@@ -281,11 +281,7 @@ impl AbbsSubPackage {
 			.filter_map(|entry| {
 				let name = entry.file_name();
 				let name = name.to_str().unwrap_or_default();
-				if let Some(name) = name.strip_prefix("defines") {
-					Some(KString::from_ref(name))
-				} else {
-					None
-				}
+				name.strip_prefix("defines").map(KString::from_ref)
 			})
 			.collect::<Vec<_>>())
 	}

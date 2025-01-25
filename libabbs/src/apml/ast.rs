@@ -275,13 +275,13 @@ fn emit_text_unit<'a>(lst: &lst::TextUnit<'a>) -> EmitResult<Vec<Word<'a>>> {
 	}
 }
 
-impl<'a> From<String> for Text<'a> {
+impl From<String> for Text<'_> {
 	fn from(value: String) -> Self {
 		Self(vec![Word::Literal(value.into())])
 	}
 }
 
-impl<'a> From<&'static str> for Text<'a> {
+impl From<&'static str> for Text<'_> {
 	fn from(value: &'static str) -> Self {
 		Self(vec![Word::Literal(value.into())])
 	}

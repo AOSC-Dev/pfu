@@ -35,8 +35,8 @@ fn main() {
 	let start = Instant::now();
 	for _ in 0..10 {
 		for src in &srcs {
-			let lst = ApmlLst::parse(&src).expect(&src);
-			let _ = ApmlAst::emit_from(&lst).expect(&src);
+			let lst = ApmlLst::parse(src).expect(src);
+			let _ = ApmlAst::emit_from(&lst).expect(src);
 		}
 	}
 	let elapsed = start.elapsed();

@@ -98,7 +98,7 @@ mod test {
 		assert_eq!(sec.as_str(), "app");
 		let sec = SectionName::from_string("app".to_string());
 		assert_eq!(sec.as_str(), "app");
-		assert_eq!(sec.deref().contains('-'), false);
+		assert!(!sec.deref().contains('-'));
 		assert_eq!(format!("{}", sec), "app");
 		let sec = SectionName::from_static("app");
 		assert_eq!(sec.as_str(), "app");

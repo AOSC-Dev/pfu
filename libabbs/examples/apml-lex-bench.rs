@@ -30,7 +30,7 @@ fn main() {
 	let start = Instant::now();
 	for _ in 0..10 {
 		for src in &srcs {
-			let _ = libabbs::apml::lst::ApmlLst::parse(&src).expect(&src);
+			let _ = libabbs::apml::lst::ApmlLst::parse(src).expect(src);
 		}
 	}
 	let elapsed = start.elapsed();

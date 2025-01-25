@@ -69,7 +69,7 @@ impl<'a> ApmlEditor<'a> {
 		&self,
 	) -> ast::EmitResult<Vec<ast::VariableDefinition<'a>>> {
 		self.lst_variables()
-			.map(|var| ast::VariableDefinition::emit_from(var))
+			.map(ast::VariableDefinition::emit_from)
 			.collect()
 	}
 

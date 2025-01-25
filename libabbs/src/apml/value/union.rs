@@ -38,11 +38,11 @@ impl Union {
 			value.push_str("::");
 			value.push_str(k.as_str());
 			value.push('=');
-			value.push_str(&v);
+			value.push_str(v);
 		}
 		if let Some(argument) = &self.argument {
 			value.push_str("::");
-			value.push_str(&argument);
+			value.push_str(argument);
 		}
 		lst::Text(vec![lst::TextUnit::DoubleQuote(vec![lst::Word::Literal(
 			lst::LiteralPart::escape(value),
