@@ -19,6 +19,7 @@ declare_linter! {
 	[
 		"unknown-fetch-tag",
 		"prefer-specific-src-handler",
+		"insecure-src-url",
 	]
 }
 
@@ -36,24 +37,31 @@ declare_lint! {
 	"use more-specific handler for SRCS"
 }
 
+declare_lint! {
+	pub INSECURE_SRC_URL_LINT,
+	"insecure-src-url",
+	Warning,
+	"replace insecure http:// links with https://"
+}
+
 const REGEX_TBL: &str = "(tarball|tbl)::";
 const REGEX_VERSION_TAR: &str = r##"(?P<version>\$VER|[a-zA-Z0-9\.]*\$\{[^}]+\}|[^\.]+)\.tar(\.gz|\.xz|\.bz2|\.bz|\.zstd|\.zst|)"##;
 
 static REGEX_PYPI: LazyLock<Regex> = LazyLock::new(|| {
-	Regex::new(r##"https://pypi\.io/packages/source/[A-Za-z]/(?P<name>[A-Za-z0-9\._\-]+)/([A-Za-z0-9\._\-]+)"##).unwrap()
+	Regex::new(r##"http(s|)://pypi\.io/packages/source/[A-Za-z]/(?P<name>[A-Za-z0-9\._\-]+)/([A-Za-z0-9\._\-]+)"##).unwrap()
 });
 static REGEX_PYPI_FULL: LazyLock<Regex> = LazyLock::new(|| {
 	let regex = format!(
 		"{}{}{}",
 		REGEX_TBL,
-		r##"https://pypi\.io/packages/source/[A-Za-z]/(?P<name>[A-Za-z0-9\._\-]+)/([A-Za-z0-9\._\-]+)-"##,
+		r##"http(s|)://pypi\.io/packages/source/[A-Za-z]/(?P<name>[A-Za-z0-9\._\-]+)/([A-Za-z0-9\._\-]+)-"##,
 		REGEX_VERSION_TAR
 	);
 	Regex::new(&regex).unwrap()
 });
 static REGEX_GH_TAR: LazyLock<Regex> = LazyLock::new(|| {
 	Regex::new(
-		r##"https://github\.com/(?<user>[a-zA-Z_-]+)/(?<repo>[a-zA-Z_-]+)/archive/"##,
+		r##"http(s|)://github\.com/(?<user>[a-zA-Z_-]+)/(?<repo>[a-zA-Z_-]+)/archive/"##,
 	)
 	.unwrap()
 });
@@ -61,7 +69,7 @@ static REGEX_GH_TAR_FULL: LazyLock<Regex> = LazyLock::new(|| {
 	let regex = format!(
 		"{}{}{}",
 		REGEX_TBL,
-		r##"https://github\.com/(?<user>[a-zA-Z_-]+)/(?<repo>[a-zA-Z_-]+)/archive/"##,
+		r##"http(s|)://github\.com/(?<user>[a-zA-Z_-]+)/(?<repo>[a-zA-Z_-]+)/archive/"##,
 		REGEX_VERSION_TAR
 	);
 	Regex::new(&regex).unwrap()
@@ -83,7 +91,21 @@ impl Linter for SrcsLinter {
 			let mut srcs = StringArray::from(srcs?);
 
 			for (idx, src) in srcs.iter_mut().enumerate() {
-				let un = if src.starts_with("https://") {
+				if src.contains("http://") {
+					LintMessage::new(INSECURE_SRC_URL_LINT)
+						.note(format!("source {} should use https://", idx,))
+						.snippet(Snippet::new_index(sess, &apml, srcs_idx))
+						.emit(sess);
+					apml.with_upgraded(|apml| {
+						apml.with_text(|text| {
+							text.replace("http://", "https://")
+						})
+					})?;
+				}
+
+				let un = if src.starts_with("https://")
+					|| src.starts_with("http://")
+				{
 					Union::try_from(format!("tbl::{}", src).as_str())?
 				} else {
 					Union::try_from(src.as_str())?
@@ -100,7 +122,9 @@ impl Linter for SrcsLinter {
 									"source {} should be replaced with pypi::{}",
 									idx, &cap["name"],
 								))
-								.snippet(Snippet::new_index(sess, &apml, srcs_idx))
+								.snippet(Snippet::new_index(
+									sess, &apml, srcs_idx,
+								))
 								.emit(sess);
 								if !sess.dry {
 									apml.with_upgraded(|apml| {
@@ -124,7 +148,9 @@ impl Linter for SrcsLinter {
 									"source {} should be replaced with git::https://github.com/{}/{}.git",
 									idx, &cap["user"], &cap["repo"],
 								))
-								.snippet(Snippet::new_index(sess, &apml, srcs_idx))
+								.snippet(Snippet::new_index(
+									sess, &apml, srcs_idx,
+								))
 								.emit(sess);
 								if !sess.dry {
 									apml.with_upgraded(|apml| {
