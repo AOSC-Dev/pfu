@@ -1,12 +1,10 @@
 //! Spaces and newline checks.
 
-use std::sync::Arc;
 
 use anyhow::Result;
 use async_trait::async_trait;
 use libpfu::{
 	Linter, Session, declare_lint, declare_linter,
-	message::{LintMessage, Snippet},
 };
 
 declare_linter! {

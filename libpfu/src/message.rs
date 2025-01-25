@@ -1,6 +1,6 @@
 //! Lint messages.
 
-use std::{borrow::Cow, sync::Arc};
+use std::borrow::Cow;
 
 use libabbs::apml::lst;
 
@@ -20,7 +20,7 @@ impl LintMessage {
 	pub fn new(lint: &'static LintMetadata) -> Self {
 		Self {
 			lint,
-			message: Cow::Borrowed(&lint.desc),
+			message: Cow::Borrowed(lint.desc),
 			snippets: Vec::new(),
 			notes: Vec::new(),
 		}
