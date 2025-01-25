@@ -192,10 +192,11 @@ impl ApmlFileAccess {
 
 impl Debug for ApmlFileAccess {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		f.debug_struct("ApmlFileAccess")
-			.field("path", &self.path)
-			.field("dirty", &self.dirty)
-			.finish()
+		f.write_fmt(format_args!(
+			"{:?} ({})",
+			self.path,
+			if self.dirty { "dirty" } else { "sync" }
+		))
 	}
 }
 
