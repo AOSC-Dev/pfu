@@ -97,21 +97,33 @@ impl<'b> ApmlEditor<'_, 'b> {
 		})
 	}
 
-	/// Finds a variable definition token and its index.
-	pub fn find_var_token<S: AsRef<str>>(
-		&self,
-		name: S,
-	) -> Option<&lst::Token<'b>> {
-		self.lst_tokens_iter().find_map(|token| {
+	/// Finds a variable definition's index.
+	pub fn find_var_index<S: AsRef<str>>(&self, name: S) -> Option<usize> {
+		self.lst_tokens_iter().enumerate().find_map(|(idx, token)| {
 			if let lst::Token::Variable(var) = token {
 				if var.name.as_ref() == name.as_ref() {
-					Some(token)
+					Some(idx)
 				} else {
 					None
 				}
 			} else {
 				None
 			}
+		})
+	}
+
+	/// Finds a variable definition token and its index.
+	pub fn find_var_token<S: AsRef<str>>(
+		&self,
+		name: S,
+	) -> Option<&lst::Token<'b>> {
+		self.lst_tokens_iter().find(|token| {
+			if let lst::Token::Variable(var) = token {
+				if var.name.as_ref() == name.as_ref() {
+					return true;
+				}
+			}
+			false
 		})
 	}
 
@@ -162,10 +174,19 @@ impl<'b> ApmlEditor<'_, 'b> {
 		name: &'b str,
 		value: &ast::VariableValue<'b>,
 	) {
+		self.replace_var_lst(name, value.lower())
+	}
+
+	/// Replace a variable definition.
+	pub fn replace_var_lst(
+		&mut self,
+		name: &'b str,
+		value: lst::VariableValue<'b>,
+	) {
 		let definition = lst::VariableDefinition {
 			name: name.into(),
 			op: lst::VariableOp::Assignment,
-			value: value.lower(),
+			value,
 		};
 		let token = lst::Token::Variable(definition);
 		if let Some((index, _)) = self.find_var(name) {
@@ -250,6 +271,7 @@ mod test {
 		assert_eq!(editor.find_var("a").unwrap().0, 0);
 		assert_eq!(editor.find_var("a").unwrap().1.name, "a");
 		assert_eq!(editor.find_var("b").unwrap().0, 2);
+		assert_eq!(editor.find_var_index("b").unwrap(), 2);
 		assert!(editor.find_var("A").is_none());
 		if let lst::Token::Variable(var) = editor.find_var_token("b").unwrap() {
 			assert_eq!(var.name, "b");
@@ -257,6 +279,7 @@ mod test {
 			unreachable!();
 		}
 		assert!(editor.find_var_token("A").is_none());
+		assert!(editor.find_var_index("A").is_none());
 	}
 
 	#[test]
