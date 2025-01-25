@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["libabbs", "libpfu", "pakfixer"]
+members = ["libabbs", "libpfu", "libpfu-fixers", "libpfu-logdbg", "libpfu-style", "pakfixer"]
 
 [workspace.package]
 authors = ["xtex <xtex@aosc.io>"]
