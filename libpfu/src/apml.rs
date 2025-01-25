@@ -57,6 +57,10 @@ struct ApmlFileAccessInner {
 	/// Original file value.
 	orig_text: String,
 	/// APML lossless syntax tree.
+	///
+	/// LST is not a cache but a always-ready value.
+	/// If it is [None], that means LST has been taken for
+	/// modification and read access should be denied.
 	#[borrows(orig_text)]
 	#[covariant]
 	lst: Option<ApmlLst<'this>>,
@@ -203,6 +207,30 @@ impl ApmlFileAccess {
 			);
 			f(&editor)
 		})
+	}
+
+	/// Modifies the text.
+	pub fn with_text<F>(&mut self, f: F) -> Result<()>
+	where
+		F: FnOnce(String) -> String,
+	{
+		self.ctx = None;
+		self.mark_dirty();
+		let text = self.inner.with_mut(move |inner| {
+			*inner.ast = None;
+			let lst = inner
+				.lst
+				.take()
+				.expect("APML LST has been moved for editing");
+			let text = lst.to_string();
+			f(text)
+		});
+		self.inner = ApmlFileAccessInner::try_new(
+			text,
+			|text| Ok::<_, anyhow::Error>(Some(ApmlLst::parse(text.as_str())?)),
+			|_| Ok(None),
+		)?;
+		Ok(())
 	}
 
 	/// Gets a read reference to AST.
