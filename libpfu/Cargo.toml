@@ -11,7 +11,10 @@ repository.workspace = true
 [dependencies]
 anyhow = "1.0.95"
 async-trait = "0.1.83"
+kstring = "2.0.2"
 libabbs = { version = "0.1.0", path = "../libabbs" }
+log = "0.4.25"
 opendal = "0.51.1"
+ouroboros = "0.18.5"
+parking_lot = "0.12.3"
 reqwest = { version = "0.12.9", default-features = false }
-thiserror = "2.0.9"
