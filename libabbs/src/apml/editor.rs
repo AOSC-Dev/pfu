@@ -14,47 +14,48 @@ use super::{
 	lst::{self, ApmlLst},
 };
 
-#[derive(Debug, Clone)]
-pub struct ApmlEditor<'a>(ApmlLst<'a>);
+#[derive(Debug)]
+#[repr(transparent)]
+pub struct ApmlEditor<'a, 'b>(&'a mut ApmlLst<'b>);
 
-impl<'a> AsRef<ApmlLst<'a>> for ApmlEditor<'a> {
-	fn as_ref(&self) -> &ApmlLst<'a> {
+impl<'a, 'b> AsRef<ApmlLst<'b>> for ApmlEditor<'a, 'b> {
+	fn as_ref(&self) -> &ApmlLst<'b> {
 		&self.0
 	}
 }
 
-impl<'a> ApmlEditor<'a> {
+impl<'a, 'b> ApmlEditor<'a, 'b> {
 	/// Wraps the given LST with editing API.
-	pub fn wrap(lst: ApmlLst<'a>) -> Self {
+	pub fn wrap(lst: &'a mut ApmlLst<'b>) -> Self {
 		Self(lst)
 	}
 
-	/// Unwraps the LST from the editing API.
-	pub fn unwrap(self) -> ApmlLst<'a> {
-		self.0
-	}
+	// Unwraps the LST from the editing API.
+	// pub fn unwrap(self) -> ApmlLst<'a> {
+	// 	self.0
+	// }
 }
 
-impl<'a> ApmlEditor<'a> {
+impl<'a, 'b> ApmlEditor<'a, 'b> {
 	/// Returns a [Vec] including all LST tokens.
-	pub fn lst_tokens(&mut self) -> &Vec<lst::Token<'a>> {
+	pub fn lst_tokens(&mut self) -> &Vec<lst::Token<'b>> {
 		&self.0.0
 	}
 
 	/// Iterates over all LST tokens.
-	pub fn lst_tokens_iter(&self) -> impl Iterator<Item = &lst::Token<'a>> {
+	pub fn lst_tokens_iter(&self) -> impl Iterator<Item = &lst::Token<'b>> {
 		self.0.0.iter()
 	}
 
 	/// Returns a [Vec] including all LST tokens.
-	pub fn lst_tokens_mut(&mut self) -> &mut Vec<lst::Token<'a>> {
+	pub fn lst_tokens_mut(&mut self) -> &mut Vec<lst::Token<'b>> {
 		&mut self.0.0
 	}
 
 	/// Iterates over all variable definitions in LST form.
 	pub fn lst_variables(
 		&self,
-	) -> impl Iterator<Item = &lst::VariableDefinition<'a>> {
+	) -> impl Iterator<Item = &lst::VariableDefinition<'b>> {
 		self.lst_tokens_iter().filter_map(|token| {
 			if let lst::Token::Variable(var) = token {
 				Some(var)
@@ -67,7 +68,7 @@ impl<'a> ApmlEditor<'a> {
 	/// Iterates over all variables definitions in AST form.
 	pub fn ast_variables(
 		&self,
-	) -> ast::EmitResult<Vec<ast::VariableDefinition<'a>>> {
+	) -> ast::EmitResult<Vec<ast::VariableDefinition<'b>>> {
 		self.lst_variables()
 			.map(ast::VariableDefinition::emit_from)
 			.collect()
@@ -82,8 +83,8 @@ impl<'a> ApmlEditor<'a> {
 	pub fn find_var<S: AsRef<str>>(
 		&self,
 		name: S,
-	) -> Option<(usize, &lst::VariableDefinition<'a>)> {
-		self.lst_tokens_iter().zip(0..).find_map(|(token, idx)| {
+	) -> Option<(usize, &lst::VariableDefinition<'b>)> {
+		self.lst_tokens_iter().enumerate().find_map(|(idx, token)| {
 			if let lst::Token::Variable(var) = token {
 				if var.name.as_ref() == name.as_ref() {
 					Some((idx, var))
@@ -107,8 +108,8 @@ impl<'a> ApmlEditor<'a> {
 	/// Appends a new variable assignment definition.
 	pub fn append_var_ast(
 		&mut self,
-		name: &'a str,
-		value: &ast::VariableValue<'a>,
+		name: &'b str,
+		value: &ast::VariableValue<'b>,
 		after: Option<&str>,
 	) {
 		let definition = lst::VariableDefinition {
@@ -140,8 +141,8 @@ impl<'a> ApmlEditor<'a> {
 	/// Replace a variable definition.
 	pub fn replace_var_ast(
 		&mut self,
-		name: &'a str,
-		value: &ast::VariableValue<'a>,
+		name: &'b str,
+		value: &ast::VariableValue<'b>,
 	) {
 		let definition = lst::VariableDefinition {
 			name: name.into(),
@@ -222,8 +223,8 @@ mod test {
 
 	#[test]
 	fn test() {
-		let lst = ApmlLst::parse("a=b\nb=c\nc=\"$1\"").unwrap();
-		let mut editor = ApmlEditor::wrap(lst);
+		let mut lst = ApmlLst::parse("a=b\nb=c\nc=\"$1\"").unwrap();
+		let mut editor = ApmlEditor::wrap(&mut lst);
 		assert_eq!(editor.lst_tokens_iter().count(), 5);
 		assert_eq!(editor.lst_tokens_mut().len(), 5);
 		assert_eq!(editor.ast_variables().unwrap().len(), 3);
@@ -232,76 +233,82 @@ mod test {
 		assert_eq!(editor.find_var("a").unwrap().1.name, "a");
 		assert_eq!(editor.find_var("b").unwrap().0, 2);
 		assert!(editor.find_var("A").is_none());
-		let _ = editor.unwrap();
 	}
 
 	#[test]
 	fn test_ensure_end_newline() {
-		let mut editor = ApmlEditor::wrap(ApmlLst::parse("a=b").unwrap());
+		let mut lst = ApmlLst::parse("a=b").unwrap();
+		let mut editor = ApmlEditor::wrap(&mut lst);
 		editor.ensure_end_newline();
-		assert_eq!(editor.unwrap().to_string(), "a=b\n");
+		assert_eq!(lst.to_string(), "a=b\n");
 	}
 
 	#[test]
 	fn test_append_variable() {
-		let mut editor = ApmlEditor::wrap(ApmlLst::parse("a=b\nb=c").unwrap());
+		let mut lst = ApmlLst::parse("a=b\nb=c").unwrap();
+		let mut editor = ApmlEditor::wrap(&mut lst);
 		editor.append_var_ast(
 			"c",
 			&ast::VariableValue::String("a".into()),
 			None,
 		);
-		assert_eq!(editor.unwrap().to_string(), "a=b\nb=c\nc=\"a\"\n");
-		let mut editor = ApmlEditor::wrap(ApmlLst::parse("a=b\nb=c").unwrap());
+		assert_eq!(lst.to_string(), "a=b\nb=c\nc=\"a\"\n");
+		let mut lst = ApmlLst::parse("a=b\nb=c").unwrap();
+		let mut editor = ApmlEditor::wrap(&mut lst);
 		editor.append_var_ast(
 			"c",
 			&ast::VariableValue::String("a".into()),
 			Some("a"),
 		);
-		assert_eq!(editor.unwrap().to_string(), "a=b\nc=\"a\"\nb=c");
-		let mut editor = ApmlEditor::wrap(ApmlLst::parse("a=b\nb=c").unwrap());
+		assert_eq!(lst.to_string(), "a=b\nc=\"a\"\nb=c");
+		let mut lst = ApmlLst::parse("a=b\nb=c").unwrap();
+		let mut editor = ApmlEditor::wrap(&mut lst);
 		editor.append_var_ast(
 			"c",
 			&ast::VariableValue::String("a".into()),
 			Some("b"),
 		);
-		assert_eq!(editor.unwrap().to_string(), "a=b\nb=c\nc=\"a\"\n");
-		let mut editor = ApmlEditor::wrap(ApmlLst::parse("a=b\nb=c").unwrap());
+		assert_eq!(lst.to_string(), "a=b\nb=c\nc=\"a\"\n");
+		let mut lst = ApmlLst::parse("a=b\nb=c").unwrap();
+		let mut editor = ApmlEditor::wrap(&mut lst);
 		editor.append_var_ast(
 			"c",
 			&ast::VariableValue::String("a".into()),
 			Some("eee"),
 		);
-		assert_eq!(editor.unwrap().to_string(), "a=b\nb=c\nc=\"a\"\n");
+		assert_eq!(lst.to_string(), "a=b\nb=c\nc=\"a\"\n");
 	}
 
 	#[test]
 	fn test_replace_variable() {
-		let mut editor = ApmlEditor::wrap(ApmlLst::parse("a=b\nb=c").unwrap());
+		let mut lst = ApmlLst::parse("a=b\nb=c").unwrap();
+		let mut editor = ApmlEditor::wrap(&mut lst);
 		editor.replace_var_ast("c", &ast::VariableValue::String("a".into()));
-		assert_eq!(editor.unwrap().to_string(), "a=b\nb=c\nc=\"a\"\n");
-		let mut editor = ApmlEditor::wrap(ApmlLst::parse("a=b\nb=c").unwrap());
+		assert_eq!(lst.to_string(), "a=b\nb=c\nc=\"a\"\n");
+		let mut lst = ApmlLst::parse("a=b\nb=c").unwrap();
+		let mut editor = ApmlEditor::wrap(&mut lst);
 		editor.replace_var_ast("a", &ast::VariableValue::String("a".into()));
-		assert_eq!(editor.unwrap().to_string(), "a=\"a\"\nb=c");
+		assert_eq!(lst.to_string(), "a=\"a\"\nb=c");
 	}
 
 	#[test]
 	fn test_remove_var() {
-		let mut editor =
-			ApmlEditor::wrap(ApmlLst::parse("a=b\nb=c\n\nc=\"$1\"").unwrap());
+		let mut lst = ApmlLst::parse("a=b\nb=c\n\nc=\"$1\"").unwrap();
+		let mut editor = ApmlEditor::wrap(&mut lst);
 		editor.remove_var(editor.find_var("b").unwrap().0);
-		assert_eq!(editor.unwrap().to_string(), "a=b\n\nc=\"$1\"");
-		let mut editor = ApmlEditor::wrap(
-			ApmlLst::parse("a=b # a\n# b\n# c\nb=c\n\n# a\nc=\"$1\"").unwrap(),
-		);
+		assert_eq!(lst.to_string(), "a=b\n\nc=\"$1\"");
+		let mut lst =
+			ApmlLst::parse("a=b # a\n# b\n# c\nb=c\n\n# a\nc=\"$1\"").unwrap();
+		let mut editor = ApmlEditor::wrap(&mut lst);
 		editor.remove_var(editor.find_var("b").unwrap().0);
-		assert_eq!(editor.unwrap().to_string(), "a=b # a\n\n# a\nc=\"$1\"");
+		assert_eq!(lst.to_string(), "a=b # a\n\n# a\nc=\"$1\"");
 	}
 
 	#[test]
 	fn test_comments() {
-		let editor = ApmlEditor::wrap(
-			ApmlLst::parse("a=b # a\n# b\n# c\nb=c\n\n# a\nc=\"$1\"").unwrap(),
-		);
+		let mut lst =
+			ApmlLst::parse("a=b # a\n# b\n# c\nb=c\n\n# a\nc=\"$1\"").unwrap();
+		let editor = ApmlEditor::wrap(&mut lst);
 		assert_eq!(editor.comments().count(), 4);
 	}
 }

@@ -14,7 +14,11 @@ use log::debug;
 declare_linter! {
 	pub EMPTY_LINE_LINTER,
 	EmptyLineLinter,
-	["missing-trailing-line"]
+	[
+		"missing-trailing-line",
+		"too-many-trailing-empty-lines",
+		"too-many-empty-lines",
+	]
 }
 
 declare_lint! {
@@ -53,7 +57,7 @@ impl Linter for EmptyLineLinter {
 					.any(|token| token.is_empty());
 				if missing_new_line {
 					LintMessage::new(MISSING_TRAILING_LINE_LINT)
-						.snippet(Snippet::new_index(
+						.snippet(Snippet::new(
 							sess,
 							&apml,
 							apml.lst().0.len() - 1,
@@ -79,7 +83,7 @@ impl Linter for EmptyLineLinter {
 					.collect_vec();
 				if trailing_newlines.len() > 1 {
 					LintMessage::new(TOO_MANY_TRAILING_EMPTY_LINES)
-						.snippet(Snippet::new_index(
+						.snippet(Snippet::new(
 							sess,
 							&apml,
 							apml.lst().0.len() - 1,
@@ -127,7 +131,7 @@ impl Linter for EmptyLineLinter {
 								state = State::NotEmpty;
 								if lines > 2 {
 									LintMessage::new(TOO_MANY_EMPTY_LINES)
-										.snippet(Snippet::new_index(
+										.snippet(Snippet::new(
 											sess, &apml, from,
 										))
 										.emit(sess);

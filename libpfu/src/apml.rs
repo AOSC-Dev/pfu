@@ -139,7 +139,7 @@ impl ApmlFileAccess {
 	}
 
 	/// Modifies LST.
-	/// 
+	///
 	/// This will mark the APML accessor as dirty. Thus,
 	/// you should always try to reduce call-sites.
 	pub fn with_lst<F, T>(&mut self, f: F) -> T
@@ -162,26 +162,46 @@ impl ApmlFileAccess {
 	}
 
 	/// Modifies LST with LST editor.
-	/// 
+	///
 	/// This will mark the APML accessor as dirty. Thus,
 	/// you should always try to reduce call-sites.
 	pub fn with_editor<F, T>(&mut self, f: F) -> T
 	where
-		F: FnOnce(&mut ApmlEditor<'_>) -> T,
+		F: FnOnce(&mut ApmlEditor<'_, '_>) -> T,
 	{
 		self.ctx = None;
 		self.mark_dirty();
 		self.inner.with_mut(move |inner| {
 			*inner.ast = None;
 			// take out LST to block other method's re-caching
-			let lst = inner
+			let mut lst = inner
 				.lst
 				.take()
 				.expect("APML LST has been moved for editing");
-			let mut editor = ApmlEditor::wrap(lst);
+			let mut editor = ApmlEditor::wrap(&mut lst);
 			let ret = f(&mut editor);
-			*inner.lst = Some(editor.unwrap());
+			*inner.lst = Some(lst);
 			ret
+		})
+	}
+
+	/// Reads LST with LST editor.
+	///
+	/// This will not mark the APML accessor as dirty,
+	/// and will not flush caches.
+	/// Thus you should not perform any modifications with this.
+	pub fn read_with_editor<F, T>(&mut self, f: F) -> T
+	where
+		F: FnOnce(&ApmlEditor<'_, '_>) -> T,
+	{
+		self.inner.with_mut(move |inner| {
+			let editor = ApmlEditor::wrap(
+				inner
+					.lst
+					.as_mut()
+					.expect("APML LST has been moved for editing"),
+			);
+			f(&editor)
 		})
 	}
 

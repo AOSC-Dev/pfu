@@ -59,7 +59,7 @@ pub struct Snippet {
 }
 
 impl Snippet {
-	pub fn new(
+	pub fn new_token(
 		sess: &Session,
 		apml: &ApmlFileAccess,
 		token: &lst::Token<'_>,
@@ -86,7 +86,7 @@ impl Snippet {
 		Self { path, line, source }
 	}
 
-	pub fn new_index(
+	pub fn new(
 		sess: &Session,
 		apml: &ApmlFileAccess,
 		token: usize,
