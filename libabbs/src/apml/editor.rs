@@ -97,6 +97,24 @@ impl<'b> ApmlEditor<'_, 'b> {
 		})
 	}
 
+	/// Finds a variable definition token and its index.
+	pub fn find_var_token<S: AsRef<str>>(
+		&self,
+		name: S,
+	) -> Option<&lst::Token<'b>> {
+		self.lst_tokens_iter().find_map(|token| {
+			if let lst::Token::Variable(var) = token {
+				if var.name.as_ref() == name.as_ref() {
+					Some(token)
+				} else {
+					None
+				}
+			} else {
+				None
+			}
+		})
+	}
+
 	/// Ensures there is a newline after the text.
 	pub fn ensure_end_newline(&mut self) {
 		if !matches!(self.lst_tokens().last(), None | Some(lst::Token::Newline))
@@ -233,6 +251,12 @@ mod test {
 		assert_eq!(editor.find_var("a").unwrap().1.name, "a");
 		assert_eq!(editor.find_var("b").unwrap().0, 2);
 		assert!(editor.find_var("A").is_none());
+		if let lst::Token::Variable(var) = editor.find_var_token("b").unwrap() {
+			assert_eq!(var.name, "b");
+		} else {
+			unreachable!();
+		}
+		assert!(editor.find_var_token("A").is_none());
 	}
 
 	#[test]
