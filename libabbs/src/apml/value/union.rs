@@ -5,7 +5,7 @@ use std::{collections::HashMap, sync::Arc};
 use kstring::KString;
 use nom::{
 	branch::alt,
-	bytes::complete::{tag, take, take_while1},
+	bytes::complete::{tag, take, take_while, take_while1},
 	combinator::{not, opt, recognize},
 	multi::{many0, separated_list1},
 	sequence::{pair, preceded, separated_pair, tuple},
@@ -68,9 +68,16 @@ impl TryFrom<&str> for Union {
 				separated_list1(
 					tag(";"),
 					separated_pair(
-						take_while1(|ch: char| {
-							ch.is_ascii_alphanumeric() || ch == '-' || ch == '_'
-						}),
+						preceded(
+							take_while(|ch: char| {
+								ch.is_ascii_whitespace()
+									|| ch == '\n' || ch == '\r'
+							}),
+							take_while1(|ch: char| {
+								ch.is_ascii_alphanumeric()
+									|| ch == '-' || ch == '_'
+							}),
+						),
 						tag("="),
 						recognize(many0(pair(
 							not(alt((tag("::"), tag(";")))),
@@ -133,6 +140,13 @@ mod test {
 		let union = Union::try_from("a::b=c;c=d::https://example.org").unwrap();
 		assert_eq!(union.tag, "a");
 		assert_eq!(union.properties.get("b").unwrap(), "c");
+		assert_eq!(union.properties.get("c").unwrap(), "d");
+		assert_eq!(union.argument.unwrap(), "https://example.org");
+		let union =
+			Union::try_from("a::     b=https://a.com/b;\n   c=d::https://example.org")
+				.unwrap();
+		assert_eq!(union.tag, "a");
+		assert_eq!(union.properties.get("b").unwrap(), "https://a.com/b");
 		assert_eq!(union.properties.get("c").unwrap(), "d");
 		assert_eq!(union.argument.unwrap(), "https://example.org");
 		let union =
