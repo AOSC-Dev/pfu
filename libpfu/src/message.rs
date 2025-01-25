@@ -86,11 +86,7 @@ impl Snippet {
 		Self { path, line, source }
 	}
 
-	pub fn new(
-		sess: &Session,
-		apml: &ApmlFileAccess,
-		token: usize,
-	) -> Self {
+	pub fn new(sess: &Session, apml: &ApmlFileAccess, token: usize) -> Self {
 		let lst = apml.lst();
 		let path = apml
 			.path()

@@ -1,8 +1,9 @@
 //! `SRCS` checks.
 
+use std::sync::LazyLock;
+
 use anyhow::Result;
 use async_trait::async_trait;
-use lazy_static::lazy_static;
 use libabbs::apml::value::{array::StringArray, union::Union};
 use libpfu::{
 	Linter, Session, declare_lint, declare_linter,
@@ -10,7 +11,7 @@ use libpfu::{
 	walk_apml,
 };
 use log::debug;
-use regex::{Regex, Replacer};
+use regex::Regex;
 
 declare_linter! {
 	pub SRCS_LINTER,
@@ -35,12 +36,36 @@ declare_lint! {
 	"use more-specific handler for SRCS"
 }
 
-lazy_static! {
-	pub static ref REGEX_PYPI: Regex = Regex::new(r##"https://pypi\.io/packages/source/[A-Za-z]/(?P<name>[A-Za-z0-9\._\-]+)/([A-Za-z0-9\._\-]+)"##).unwrap();
-	pub static ref REGEX_PYPI_FULL: Regex = Regex::new(r##"(tarball|tbl)::https://pypi\.io/packages/source/[A-Za-z]/(?P<name>[A-Za-z0-9\._\-]+)/([A-Za-z0-9\._\-]+)-(?P<version>\$VER|\$\{[^}]+\})\.tar(\.gz|\.xz|\.bz2|\.bz|\.zst|)"##).unwrap();
-	pub static ref REGEX_GH_TAR: Regex = Regex::new(r##"https:\/\/github\.com\/([a-zA-Z_-]+)\/([a-zA-Z_-]+)\/archive\/"##).unwrap();
-	pub static ref REGEX_GH_RELEASE: Regex = Regex::new(r##"https:\/\/github\.com\/([a-zA-Z_-]+)\/([a-zA-Z_-]+)\/releases\/download\/"##).unwrap();
-}
+const REGEX_TBL: &str = "(tarball|tbl)::";
+const REGEX_VERSION_TAR: &str = r##"(?P<version>\$VER|[a-zA-Z0-9\.]*\$\{[^}]+\}|[^\.]+)\.tar(\.gz|\.xz|\.bz2|\.bz|\.zstd|\.zst|)"##;
+
+static REGEX_PYPI: LazyLock<Regex> = LazyLock::new(|| {
+	Regex::new(r##"https://pypi\.io/packages/source/[A-Za-z]/(?P<name>[A-Za-z0-9\._\-]+)/([A-Za-z0-9\._\-]+)"##).unwrap()
+});
+static REGEX_PYPI_FULL: LazyLock<Regex> = LazyLock::new(|| {
+	let regex = format!(
+		"{}{}{}",
+		REGEX_TBL,
+		r##"https://pypi\.io/packages/source/[A-Za-z]/(?P<name>[A-Za-z0-9\._\-]+)/([A-Za-z0-9\._\-]+)-"##,
+		REGEX_VERSION_TAR
+	);
+	Regex::new(&regex).unwrap()
+});
+static REGEX_GH_TAR: LazyLock<Regex> = LazyLock::new(|| {
+	Regex::new(
+		r##"https://github\.com/(?<user>[a-zA-Z_-]+)/(?<repo>[a-zA-Z_-]+)/archive/"##,
+	)
+	.unwrap()
+});
+static REGEX_GH_TAR_FULL: LazyLock<Regex> = LazyLock::new(|| {
+	let regex = format!(
+		"{}{}{}",
+		REGEX_TBL,
+		r##"https://github\.com/(?<user>[a-zA-Z_-]+)/(?<repo>[a-zA-Z_-]+)/archive/"##,
+		REGEX_VERSION_TAR
+	);
+	Regex::new(&regex).unwrap()
+});
 
 #[async_trait]
 impl Linter for SrcsLinter {
@@ -55,15 +80,15 @@ impl Linter for SrcsLinter {
 					}),
 				)
 			});
-			let mut srcs = srcs?;
-			if srcs.starts_with("https://") {
-				srcs = format!("tbl::{}", srcs);
-			}
-			let mut srcs = StringArray::from(srcs);
+			let mut srcs = StringArray::from(srcs?);
 
-			let mut dirty = false;
-			for (idx, mut src) in srcs.iter_mut().enumerate() {
-				let un = Union::try_from(src.as_str())?;
+			for (idx, src) in srcs.iter_mut().enumerate() {
+				let un = if src.starts_with("https://") {
+					Union::try_from(format!("tbl::{}", src).as_str())?
+				} else {
+					Union::try_from(src.as_str())?
+				};
+
 				match un.tag.to_ascii_lowercase().as_str() {
 					"tarball" | "tbl" => {
 						if let Some(arg) = un.argument {
@@ -89,26 +114,30 @@ impl Linter for SrcsLinter {
 										})
 									})?;
 								}
-							} else if REGEX_GH_TAR.is_match(&arg) {
+							} else if let Some(cap) =
+								REGEX_GH_TAR.captures(&arg)
+							{
 								LintMessage::new(
 									PREFER_SPECIFIC_SRC_HANDLER_LINT,
 								)
 								.note(format!(
-									"source {} should be replaced with git::",
-									idx
+									"source {} should be replaced with git::https://github.com/{}/{}.git",
+									idx, &cap["user"], &cap["repo"],
 								))
 								.snippet(Snippet::new(sess, &apml, srcs_idx))
 								.emit(sess);
-							} else if REGEX_GH_RELEASE.is_match(&arg) {
-								LintMessage::new(
-									PREFER_SPECIFIC_SRC_HANDLER_LINT,
-								)
-								.note(format!(
-									"source {} should be replaced with git::",
-									idx
-								))
-								.snippet(Snippet::new(sess, &apml, srcs_idx))
-								.emit(sess);
+								if !sess.dry {
+									apml.with_upgraded(|apml| {
+										apml.with_text(|text| {
+											REGEX_GH_TAR_FULL
+												.replace(
+													&text,
+													"git::commit=tags/${version}::https://github.com/${user}/${repo}.git",
+												)
+												.to_string()
+										})
+									})?;
+								}
 							}
 						}
 					}

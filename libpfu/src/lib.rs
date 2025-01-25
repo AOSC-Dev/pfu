@@ -113,7 +113,9 @@ macro_rules! declare_lint {
     );
 }
 
-pub fn walk_apml(sess: &Session) -> Vec<RwLockUpgradableReadGuard<ApmlFileAccess>> {
+pub fn walk_apml(
+	sess: &Session,
+) -> Vec<RwLockUpgradableReadGuard<ApmlFileAccess>> {
 	let mut result = vec![sess.spec.upgradable_read()];
 	for subpkg in &sess.subpackages {
 		for recipe in &subpkg.recipes {
