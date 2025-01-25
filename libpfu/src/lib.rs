@@ -124,3 +124,15 @@ pub fn walk_apml(
 	}
 	result
 }
+
+pub fn walk_defines(
+	sess: &Session,
+) -> Vec<RwLockUpgradableReadGuard<ApmlFileAccess>> {
+	let mut result = vec![];
+	for subpkg in &sess.subpackages {
+		for recipe in &subpkg.recipes {
+			result.push(recipe.defines.upgradable_read());
+		}
+	}
+	result
+}
