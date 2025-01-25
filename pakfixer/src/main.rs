@@ -114,13 +114,12 @@ async fn main() -> Result<()> {
 				package.name()
 			);
 		}
-		let name = package.name().to_string();
-		let mut sess = match Session::new(abbs.clone(), package) {
+		let mut sess = match Session::new(abbs.clone(), package.clone()) {
 			Ok(sess) => sess,
 			Err(err) => {
 				error!(
-					"Session initialization failed for {}: {:#?}",
-					name, err
+					"Session initialization failed for {:?}: {:#?}",
+					&package, err
 				);
 				continue;
 			}
@@ -130,10 +129,10 @@ async fn main() -> Result<()> {
 		for (ident, linter) in &linters {
 			match linter.apply(&sess).await {
 				Ok(_) => {
-					debug!("{} finished on {}", ident, name);
+					debug!("{} finished on {:?}", ident, &package);
 				}
 				Err(err) => {
-					error!("{} failed on {}: {:#?}", ident, name, err);
+					error!("{} failed on {:?}: {:#?}", ident, &package, err);
 					continue;
 				}
 			};

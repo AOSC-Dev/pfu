@@ -1,6 +1,9 @@
 //! ABBS tree operators.
 
-use std::path::{Path, PathBuf};
+use std::{
+	fmt::Debug,
+	path::{Path, PathBuf},
+};
 
 use kstring::KString;
 use thiserror::Error;
@@ -118,7 +121,7 @@ pub enum AbbsError {
 
 pub type AbbsResult<T> = Result<T, AbbsError>;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct AbbsSourcePackage(PathBuf);
 
 impl AbbsSourcePackage {
@@ -220,6 +223,12 @@ impl PartialOrd for AbbsSourcePackage {
 		} else {
 			None
 		}
+	}
+}
+
+impl Debug for AbbsSourcePackage {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.write_fmt(format_args!("{}/{}", self.section(), self.name()))
 	}
 }
 
