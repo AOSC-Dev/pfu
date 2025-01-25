@@ -4,10 +4,11 @@ use std::{collections::HashMap, sync::Arc};
 
 use kstring::KString;
 use nom::{
-	bytes::complete::{tag, take_while1},
-	combinator::opt,
-	multi::separated_list1,
-	sequence::{preceded, separated_pair, tuple},
+	branch::alt,
+	bytes::complete::{tag, take, take_while1},
+	combinator::{not, opt, recognize},
+	multi::{many0, separated_list1},
+	sequence::{pair, preceded, separated_pair, tuple},
 };
 
 use crate::apml::{lst, parser::ParseError};
@@ -71,9 +72,10 @@ impl TryFrom<&str> for Union {
 							ch.is_ascii_alphanumeric() || ch == '-' || ch == '_'
 						}),
 						tag("="),
-						take_while1(|ch: char| {
-							ch.is_ascii() && ch != ';' && ch != ':'
-						}),
+						recognize(many0(pair(
+							not(alt((tag("::"), tag(";")))),
+							take(1usize),
+						))),
 					),
 				),
 			)),
@@ -136,6 +138,12 @@ mod test {
 		let union =
 			Union::try_from("a::b=c;copy-repo=d::https://example.org").unwrap();
 		assert_eq!(union.properties.get("copy-repo").unwrap(), "d");
+		let union =
+			Union::try_from("a::b=c;copy-repo=https://example.org").unwrap();
+		assert_eq!(
+			union.properties.get("copy-repo").unwrap(),
+			"https://example.org"
+		);
 		let union = Union::try_from("a::b=c;c=d").unwrap();
 		assert_eq!(union.tag, "a");
 		assert_eq!(union.properties.get("b").unwrap(), "c");
