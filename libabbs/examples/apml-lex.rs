@@ -1,17 +1,17 @@
 use std::{
-    env::{self, args},
-    fs,
+	env::{self, args},
+	fs,
 };
 
 fn main() {
-    let file = args().nth(1).expect("Usage: apml-lex <PATH>");
-    let src = fs::read_to_string(&file).unwrap();
-    let tree = libabbs::apml::lst::ApmlLst::parse(&src).unwrap();
+	let file = args().nth(1).expect("Usage: apml-lex <PATH>");
+	let src = fs::read_to_string(&file).unwrap();
+	let tree = libabbs::apml::lst::ApmlLst::parse(&src).unwrap();
 
-    // validation
-    assert_eq!(tree.to_string(), src);
+	// validation
+	assert_eq!(tree.to_string(), src);
 
-    if env::var("QUIET").is_err() {
-        println!("{:#?}", tree);
-    }
+	if env::var("QUIET").is_err() {
+		println!("{:#?}", tree);
+	}
 }
