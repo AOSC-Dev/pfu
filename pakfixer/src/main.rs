@@ -37,7 +37,7 @@ struct Args {
 	#[arg(long)]
 	world: bool,
 	/// Dry run.
-	#[arg(long)]
+	#[arg(short, long)]
 	dry: bool,
 	/// Run without network.
 	#[arg(long, env = "NO_NETWORK")]
