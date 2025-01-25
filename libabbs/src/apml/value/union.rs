@@ -6,7 +6,7 @@ use kstring::KString;
 use nom::{
 	bytes::complete::{tag, take_while1},
 	combinator::opt,
-	multi::many0,
+	multi::separated_list1,
 	sequence::{preceded, separated_pair, tuple},
 };
 
@@ -33,12 +33,17 @@ impl Union {
 	pub fn print(&self) -> lst::Text<'static> {
 		let mut value = String::from(self.tag.as_str());
 		let mut entries = self.properties.iter().collect::<Vec<_>>();
-		entries.sort_by_key(|(k, _)| k.as_str());
-		for (k, v) in entries {
+		if !entries.is_empty() {
+			entries.sort_by_key(|(k, _)| k.as_str());
 			value.push_str("::");
-			value.push_str(k.as_str());
-			value.push('=');
-			value.push_str(v);
+			for (idx, (k, v)) in entries.into_iter().enumerate() {
+				if idx != 0 {
+					value.push_str(";");
+				}
+				value.push_str(k.as_str());
+				value.push('=');
+				value.push_str(v);
+			}
 		}
 		if let Some(argument) = &self.argument {
 			value.push_str("::");
@@ -57,12 +62,17 @@ impl TryFrom<&str> for Union {
 		let src = value.trim();
 		let (i, (tag, properties, argument)) = tuple((
 			take_while1(|ch: char| ch.is_ascii_alphanumeric()),
-			many0(preceded(
+			opt(preceded(
 				tag("::"),
-				separated_pair(
-					take_while1(|ch: char| ch.is_ascii_alphanumeric()),
-					tag("="),
-					take_while1(|ch: char| ch.is_ascii() && ch != ':'),
+				separated_list1(
+					tag(";"),
+					separated_pair(
+						take_while1(|ch: char| ch.is_ascii_alphanumeric()),
+						tag("="),
+						take_while1(|ch: char| {
+							ch.is_ascii() && ch != ';' && ch != ':'
+						}),
+					),
 				),
 			)),
 			opt(preceded(tag("::"), take_while1(|ch: char| ch.is_ascii()))),
@@ -73,8 +83,10 @@ impl TryFrom<&str> for Union {
 			});
 		}
 		let mut props = HashMap::new();
-		for (k, v) in properties {
-			props.insert(KString::from_ref(k), v.to_string());
+		if let Some(properties) = properties {
+			for (k, v) in properties {
+				props.insert(KString::from_ref(k), v.to_string());
+			}
 		}
 		Ok(Self {
 			tag: KString::from_ref(tag),
@@ -108,19 +120,18 @@ mod test {
 		union.properties.insert("test1".into(), "test".to_string());
 		assert_eq!(
 			union.print().to_string(),
-			"\"test::test=test::test1=test::test\""
+			"\"test::test=test;test1=test::test\""
 		);
 	}
 
 	#[test]
 	fn test_union_parse() {
-		let union =
-			Union::try_from("a::b=c::c=d::https://example.org").unwrap();
+		let union = Union::try_from("a::b=c;c=d::https://example.org").unwrap();
 		assert_eq!(union.tag, "a");
 		assert_eq!(union.properties.get("b").unwrap(), "c");
 		assert_eq!(union.properties.get("c").unwrap(), "d");
 		assert_eq!(union.argument.unwrap(), "https://example.org");
-		let union = Union::try_from("a::b=c::c=d").unwrap();
+		let union = Union::try_from("a::b=c;c=d").unwrap();
 		assert_eq!(union.tag, "a");
 		assert_eq!(union.properties.get("b").unwrap(), "c");
 		assert_eq!(union.properties.get("c").unwrap(), "d");
