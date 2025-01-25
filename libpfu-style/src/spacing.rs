@@ -55,7 +55,7 @@ impl Linter for ExtraSpacesLinter {
 				.inspect(|line| {
 					let index = line[0].0;
 					LintMessage::new(EXTRA_SPACES_LINT)
-						.snippet(Snippet::new(sess, &apml, index))
+						.snippet(Snippet::new_index(sess, &apml, index))
 						.emit(sess);
 				})
 				.map(|line| {

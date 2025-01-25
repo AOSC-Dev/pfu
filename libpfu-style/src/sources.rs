@@ -100,7 +100,7 @@ impl Linter for SrcsLinter {
 									"source {} should be replaced with pypi::{}",
 									idx, &cap["name"],
 								))
-								.snippet(Snippet::new(sess, &apml, srcs_idx))
+								.snippet(Snippet::new_index(sess, &apml, srcs_idx))
 								.emit(sess);
 								if !sess.dry {
 									apml.with_upgraded(|apml| {
@@ -124,7 +124,7 @@ impl Linter for SrcsLinter {
 									"source {} should be replaced with git::https://github.com/{}/{}.git",
 									idx, &cap["user"], &cap["repo"],
 								))
-								.snippet(Snippet::new(sess, &apml, srcs_idx))
+								.snippet(Snippet::new_index(sess, &apml, srcs_idx))
 								.emit(sess);
 								if !sess.dry {
 									apml.with_upgraded(|apml| {
@@ -149,7 +149,7 @@ impl Linter for SrcsLinter {
 								"source {} with tag {} is unsupported",
 								idx, un.tag
 							))
-							.snippet(Snippet::new(sess, &apml, srcs_idx))
+							.snippet(Snippet::new_index(sess, &apml, srcs_idx))
 							.emit(sess);
 					}
 				}

@@ -14,6 +14,6 @@ pub async fn open(ctx: &Session) -> Result<Operator> {
 		.context("Cannot read spec file")?;
 	let spec_ctx = ApmlContext::eval_source(&spec_src)?;
 	let srcs_str = spec_ctx.read("SRCS").into_string();
-	let srcs = StringArray::from(srcs_str);
+	let _srcs = StringArray::from(srcs_str);
 	todo!()
 }

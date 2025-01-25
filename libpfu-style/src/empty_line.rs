@@ -57,7 +57,7 @@ impl Linter for EmptyLineLinter {
 					.any(|token| token.is_empty());
 				if missing_new_line {
 					LintMessage::new(MISSING_TRAILING_LINE_LINT)
-						.snippet(Snippet::new(
+						.snippet(Snippet::new_index(
 							sess,
 							&apml,
 							apml.lst().0.len() - 1,
@@ -83,7 +83,7 @@ impl Linter for EmptyLineLinter {
 					.collect_vec();
 				if trailing_newlines.len() > 1 {
 					LintMessage::new(TOO_MANY_TRAILING_EMPTY_LINES)
-						.snippet(Snippet::new(
+						.snippet(Snippet::new_index(
 							sess,
 							&apml,
 							apml.lst().0.len() - 1,
@@ -131,7 +131,7 @@ impl Linter for EmptyLineLinter {
 								state = State::NotEmpty;
 								if lines > 2 {
 									LintMessage::new(TOO_MANY_EMPTY_LINES)
-										.snippet(Snippet::new(
+										.snippet(Snippet::new_index(
 											sess, &apml, from,
 										))
 										.emit(sess);
