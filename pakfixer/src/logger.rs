@@ -95,7 +95,7 @@ impl LintReporter {
 			if let Some(source) = snippet.source {
 				write!(to, ": {}", source)?;
 			}
-			write!(to, "\n")?;
+			writeln!(to)?;
 		}
 		Ok(())
 	}

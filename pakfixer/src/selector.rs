@@ -36,6 +36,7 @@ impl Default for LinterSelector {
 impl LinterSelector {
 	/// Applies a linter selecting directive.
 	pub fn apply(&mut self, directive: &str) {
+		#[allow(clippy::collapsible_else_if)]
 		if let Some(directive) = directive.strip_prefix("no-") {
 			if directive.ends_with("Linter") {
 				self.disabled_linters.insert(KString::from_ref(directive));
@@ -84,7 +85,7 @@ impl LinterSelector {
 				return false;
 			}
 			debug!("Selecting linter {}", linter.ident);
-			return true;
+			true
 		};
 		for preset in self.presets {
 			for linter in preset {

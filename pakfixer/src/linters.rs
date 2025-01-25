@@ -20,17 +20,15 @@ pub static LINTER_PRESETS: &[(&str, LinterPreset)] = &[
 	("crazy", CRAZY_LINTERS),
 ];
 
-pub static FULL_LINTERS: LinterPreset = &[&EXTRA_SPACES_LINTER];
-pub static BASELINE_LINTERS: LinterPreset = &[&EXTRA_SPACES_LINTER];
+pub static FULL_LINTERS: LinterPreset = &[EXTRA_SPACES_LINTER];
+pub static BASELINE_LINTERS: LinterPreset = &[EXTRA_SPACES_LINTER];
 pub static EXTRA_LINTERS: LinterPreset = &[];
 pub static PEDANTIC_LINTERS: LinterPreset = &[];
 pub static CRAZY_LINTERS: LinterPreset = &[];
 
 pub fn find(name: &str) -> Option<&'static LinterMetadata> {
-	for linter in FULL_LINTERS {
-		if linter.ident == name {
-			return Some(linter);
-		}
-	}
-	None
+	FULL_LINTERS
+		.iter()
+		.find(|linter| linter.ident == name)
+		.copied()
 }
