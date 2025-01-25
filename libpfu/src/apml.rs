@@ -104,6 +104,21 @@ impl ApmlFileAccess {
 		self.dirty
 	}
 
+	/// Marks the APML file as dirty.
+	fn mark_dirty(&mut self) {
+		if !self.dirty {
+			self.dirty = true;
+			#[cfg(debug_assertions)]
+			if std::env::var("LIBPFU_TRACK_DIRTY").is_ok() {
+				log::info!(
+					"{:?} is marked as dirty:\n{}",
+					self,
+					std::backtrace::Backtrace::capture()
+				);
+			}
+		}
+	}
+
 	/// Saves changes to disk and clears the dirty flag.
 	pub fn save(&mut self) -> Result<()> {
 		if self.dirty {
@@ -124,12 +139,15 @@ impl ApmlFileAccess {
 	}
 
 	/// Modifies LST.
+	/// 
+	/// This will mark the APML accessor as dirty. Thus,
+	/// you should always try to reduce call-sites.
 	pub fn with_lst<F, T>(&mut self, f: F) -> T
 	where
 		F: FnOnce(&mut ApmlLst<'_>) -> T,
 	{
 		self.ctx = None;
-		self.dirty = true;
+		self.mark_dirty();
 		self.inner.with_mut(move |inner| {
 			*inner.ast = None;
 			// take out LST to block other method's re-caching
@@ -144,12 +162,15 @@ impl ApmlFileAccess {
 	}
 
 	/// Modifies LST with LST editor.
+	/// 
+	/// This will mark the APML accessor as dirty. Thus,
+	/// you should always try to reduce call-sites.
 	pub fn with_editor<F, T>(&mut self, f: F) -> T
 	where
 		F: FnOnce(&mut ApmlEditor<'_>) -> T,
 	{
 		self.ctx = None;
-		self.dirty = true;
+		self.mark_dirty();
 		self.inner.with_mut(move |inner| {
 			*inner.ast = None;
 			// take out LST to block other method's re-caching
