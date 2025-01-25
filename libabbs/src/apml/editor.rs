@@ -18,9 +18,9 @@ use super::{
 #[repr(transparent)]
 pub struct ApmlEditor<'a, 'b>(&'a mut ApmlLst<'b>);
 
-impl<'a, 'b> AsRef<ApmlLst<'b>> for ApmlEditor<'a, 'b> {
+impl<'b> AsRef<ApmlLst<'b>> for ApmlEditor<'_, 'b> {
 	fn as_ref(&self) -> &ApmlLst<'b> {
-		&self.0
+		self.0
 	}
 }
 
@@ -36,7 +36,7 @@ impl<'a, 'b> ApmlEditor<'a, 'b> {
 	// }
 }
 
-impl<'a, 'b> ApmlEditor<'a, 'b> {
+impl<'b> ApmlEditor<'_, 'b> {
 	/// Returns a [Vec] including all LST tokens.
 	pub fn lst_tokens(&mut self) -> &Vec<lst::Token<'b>> {
 		&self.0.0

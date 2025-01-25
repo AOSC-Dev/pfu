@@ -38,7 +38,7 @@ impl Union {
 			value.push_str("::");
 			for (idx, (k, v)) in entries.into_iter().enumerate() {
 				if idx != 0 {
-					value.push_str(";");
+					value.push(';');
 				}
 				value.push_str(k.as_str());
 				value.push('=');
