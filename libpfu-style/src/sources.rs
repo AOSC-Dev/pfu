@@ -10,7 +10,7 @@ use libpfu::{
 	walk_apml,
 };
 use log::debug;
-use regex::Regex;
+use regex::{Regex, Replacer};
 
 declare_linter! {
 	pub SRCS_LINTER,
@@ -36,7 +36,8 @@ declare_lint! {
 }
 
 lazy_static! {
-	pub static ref REGEX_PYPI: Regex = Regex::new(r##"https:\/\/pypi\.io\/packages\/source\/[A-Za-z]\/([A-Za-z0-9\._\-]+)"##).unwrap();
+	pub static ref REGEX_PYPI: Regex = Regex::new(r##"https://pypi\.io/packages/source/[A-Za-z]/(?P<name>[A-Za-z0-9\._\-]+)/([A-Za-z0-9\._\-]+)"##).unwrap();
+	pub static ref REGEX_PYPI_FULL: Regex = Regex::new(r##"(tarball|tbl)::https://pypi\.io/packages/source/[A-Za-z]/(?P<name>[A-Za-z0-9\._\-]+)/([A-Za-z0-9\._\-]+)-(?P<version>\$VER|\$\{[^}]+\})\.tar(\.gz|\.xz|\.bz2|\.bz|\.zst|)"##).unwrap();
 	pub static ref REGEX_GH_TAR: Regex = Regex::new(r##"https:\/\/github\.com\/([a-zA-Z_-]+)\/([a-zA-Z_-]+)\/archive\/"##).unwrap();
 	pub static ref REGEX_GH_RELEASE: Regex = Regex::new(r##"https:\/\/github\.com\/([a-zA-Z_-]+)\/([a-zA-Z_-]+)\/releases\/download\/"##).unwrap();
 }
@@ -54,9 +55,9 @@ impl Linter for SrcsLinter {
 					}),
 				)
 			});
-			let srcs = srcs?;
-			if srcs.starts_with("https://") || srcs.starts_with("git://") {
-				continue;
+			let mut srcs = srcs?;
+			if srcs.starts_with("https://") {
+				srcs = format!("tbl::{}", srcs);
 			}
 			let mut srcs = StringArray::from(srcs);
 
@@ -66,16 +67,28 @@ impl Linter for SrcsLinter {
 				match un.tag.to_ascii_lowercase().as_str() {
 					"tarball" | "tbl" => {
 						if let Some(arg) = un.argument {
-							if REGEX_PYPI.is_match(&arg) {
+							if let Some(cap) = REGEX_PYPI.captures(&arg) {
 								LintMessage::new(
 									PREFER_SPECIFIC_SRC_HANDLER_LINT,
 								)
 								.note(format!(
-									"source {} should be replaced with pypi::",
-									idx
+									"source {} should be replaced with pypi::{}",
+									idx, &cap["name"],
 								))
 								.snippet(Snippet::new(sess, &apml, srcs_idx))
 								.emit(sess);
+								if !sess.dry {
+									apml.with_upgraded(|apml| {
+										apml.with_text(|text| {
+											REGEX_PYPI_FULL
+												.replace(
+													&text,
+													"pypi::version=${version}::${name}",
+												)
+												.to_string()
+										})
+									})?;
+								}
 							} else if REGEX_GH_TAR.is_match(&arg) {
 								LintMessage::new(
 									PREFER_SPECIFIC_SRC_HANDLER_LINT,
