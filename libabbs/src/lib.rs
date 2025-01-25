@@ -45,4 +45,9 @@ impl Architecture {
 			_ => None,
 		}
 	}
+
+	/// Returns if the architecture is [`noarch`][Self::NoArch].
+	pub fn is_noarch(&self) -> bool {
+		matches!(self, Self::NoArch)
+	}
 }
