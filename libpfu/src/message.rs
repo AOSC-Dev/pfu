@@ -85,4 +85,27 @@ impl Snippet {
 		};
 		Self { path, line, source }
 	}
+
+	pub fn new_index(
+		sess: &Session,
+		apml: &ApmlFileAccess,
+		token: usize,
+	) -> Self {
+		let lst = apml.lst();
+		let path = apml
+			.path()
+			.strip_prefix(sess.tree.as_path())
+			.unwrap_or(apml.path())
+			.to_string_lossy()
+			.to_string();
+		let line = lst.0[0..token]
+			.iter()
+			.filter(|token| matches!(token, lst::Token::Newline))
+			.count();
+		Self {
+			path,
+			line: Some(line),
+			source: None,
+		}
+	}
 }
