@@ -100,12 +100,12 @@ impl ApmlFileAccess {
 	}
 
 	/// Returns the dirty mark.
-	pub fn dirty(&self) -> bool {
+	pub fn is_dirty(&self) -> bool {
 		self.dirty
 	}
 
 	/// Saves changes to disk and clears the dirty flag.
-	pub fn write(&mut self) -> Result<()> {
+	pub fn save(&mut self) -> Result<()> {
 		if self.dirty {
 			self.dirty = false;
 			let text = self.lst().to_string();

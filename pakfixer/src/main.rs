@@ -1,10 +1,10 @@
 use std::{path::PathBuf, time::SystemTime};
 
-use anyhow::{Result, bail};
+use anyhow::{Context, Result, bail};
 use clap::Parser;
 use console::style;
 use libabbs::tree::AbbsTree;
-use libpfu::Session;
+use libpfu::{Session, walk_apml};
 use log::{debug, error, info};
 use logger::LintReporter;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
@@ -136,9 +136,20 @@ async fn main() -> Result<()> {
 					continue;
 				}
 			};
+			let messages = sess.take_messages();
+			if messages.is_empty() {
+				continue;
+			}
 			let mut stdout = std::io::stdout().lock();
-			for message in sess.take_messages() {
+			for message in messages {
 				reporter.report(message, &mut stdout)?;
+			}
+		}
+		debug!("Saving APML files for {:?}", &package);
+		for mut apml in walk_apml(&sess) {
+			if apml.is_dirty() {
+				apml.with_upgraded(|apml| apml.save())
+					.with_context(|| format!("saving {:?}", apml))?;
 			}
 		}
 	}
