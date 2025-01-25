@@ -76,6 +76,13 @@ pub enum Token<'a> {
 	Variable(VariableDefinition<'a>),
 }
 
+impl Token<'_> {
+	/// Returns if the token is a space or a newline.
+	pub fn is_empty(&self) -> bool {
+		matches!(&self, Token::Newline | Token::Spacy(_))
+	}
+}
+
 impl Display for Token<'_> {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		match self {
@@ -514,6 +521,22 @@ mod test {
 		dbg!(&tree);
 		let tree = ApmlLst::parse(r##"aaa"##).unwrap_err();
 		dbg!(&tree);
+	}
+
+	#[test]
+	fn test_token() {
+		assert!(Token::Newline.is_empty());
+		assert!(Token::Spacy(' ').is_empty());
+		assert!(Token::Spacy('\t').is_empty());
+		assert!(!Token::Comment(Cow::Borrowed("Test")).is_empty());
+		assert!(
+			!Token::Variable(VariableDefinition {
+				name: Cow::Borrowed("Test"),
+				op: VariableOp::Assignment,
+				value: VariableValue::String(Arc::new(Text(vec![])))
+			})
+			.is_empty()
+		);
 	}
 
 	#[test]
