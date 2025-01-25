@@ -69,6 +69,9 @@ impl LintReporter {
 		message: LintMessage,
 		mut to: impl Write,
 	) -> Result<()> {
+		if self.disabled_lints.contains(message.lint.ident) {
+			return Ok(());
+		}
 		let level = match message.lint.level {
 			libpfu::Level::Note => style("note:  ").dim().bold(),
 			libpfu::Level::Info => style("info:  ").cyan().bold(),
@@ -77,7 +80,12 @@ impl LintReporter {
 		};
 		writeln!(to, "{}{}", level, style(message.message).bold())?;
 		for note in message.notes {
-			writeln!(to, "       {}{}", style("note: ").dim().bold(), style(note).dim())?;
+			writeln!(
+				to,
+				"       {}{}",
+				style("note: ").dim().bold(),
+				style(note).dim()
+			)?;
 		}
 		for snippet in message.snippets {
 			write!(to, "       {}{}", style("--> ").blue(), snippet.path)?;
