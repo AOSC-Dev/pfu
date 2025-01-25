@@ -67,7 +67,9 @@ impl TryFrom<&str> for Union {
 				separated_list1(
 					tag(";"),
 					separated_pair(
-						take_while1(|ch: char| ch.is_ascii_alphanumeric()),
+						take_while1(|ch: char| {
+							ch.is_ascii_alphanumeric() || ch == '-' || ch == '_'
+						}),
 						tag("="),
 						take_while1(|ch: char| {
 							ch.is_ascii() && ch != ';' && ch != ':'
@@ -131,6 +133,9 @@ mod test {
 		assert_eq!(union.properties.get("b").unwrap(), "c");
 		assert_eq!(union.properties.get("c").unwrap(), "d");
 		assert_eq!(union.argument.unwrap(), "https://example.org");
+		let union =
+			Union::try_from("a::b=c;copy-repo=d::https://example.org").unwrap();
+		assert_eq!(union.properties.get("copy-repo").unwrap(), "d");
 		let union = Union::try_from("a::b=c;c=d").unwrap();
 		assert_eq!(union.tag, "a");
 		assert_eq!(union.properties.get("b").unwrap(), "c");
