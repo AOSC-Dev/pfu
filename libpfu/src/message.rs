@@ -75,7 +75,7 @@ impl Snippet {
 			lst.0[0..index]
 				.iter()
 				.filter(|token| matches!(token, lst::Token::Newline))
-				.count()
+				.count() + 1
 		});
 		let source = match token {
 			lst::Token::Spacy(_) | lst::Token::Newline => None,
@@ -101,7 +101,7 @@ impl Snippet {
 		let line = lst.0[0..token]
 			.iter()
 			.filter(|token| matches!(token, lst::Token::Newline))
-			.count();
+			.count() + 1;
 		Self {
 			path,
 			line: Some(line),
