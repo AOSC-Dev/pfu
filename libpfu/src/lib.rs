@@ -4,18 +4,20 @@
 use std::{fmt::Debug, hash::Hash};
 
 use anyhow::Result;
+use apml::ApmlFileAccess;
 use async_trait::async_trait;
 
 pub mod apml;
 pub mod message;
 pub mod session;
 pub mod source;
+use parking_lot::RwLockUpgradableReadGuard;
 pub use session::Session;
 
 /// A checker.
 #[async_trait]
 pub trait Linter: 'static + Send + Sync {
-	async fn apply(&self, sess: &mut Session) -> Result<()>;
+	async fn apply(&self, sess: &Session) -> Result<()>;
 }
 
 /// Static non-generic metadata of a linter.
@@ -109,4 +111,14 @@ macro_rules! declare_lint {
             desc: $desc
         };
     );
+}
+
+pub fn walk_apml(sess: &Session) -> Vec<RwLockUpgradableReadGuard<ApmlFileAccess>> {
+	let mut result = vec![sess.spec.upgradable_read()];
+	for subpkg in &sess.subpackages {
+		for recipe in &subpkg.recipes {
+			result.push(recipe.defines.upgradable_read());
+		}
+	}
+	result
 }

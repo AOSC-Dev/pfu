@@ -27,6 +27,7 @@
 //! and context cache and re-emitting or re-evaluating them on the next access.
 
 use std::{
+	fmt::Debug,
 	fs,
 	path::{Path, PathBuf},
 };
@@ -123,7 +124,6 @@ impl ApmlFileAccess {
 	}
 
 	/// Modifies LST.
-	#[must_use]
 	pub fn with_lst<F, T>(&mut self, f: F) -> T
 	where
 		F: FnOnce(&mut ApmlLst<'_>) -> T,
@@ -144,7 +144,6 @@ impl ApmlFileAccess {
 	}
 
 	/// Modifies LST with LST editor.
-	#[must_use]
 	pub fn with_editor<F, T>(&mut self, f: F) -> T
 	where
 		F: FnOnce(&mut ApmlEditor<'_>) -> T,
@@ -188,6 +187,15 @@ impl ApmlFileAccess {
 			self.ctx = Some(ctx);
 		}
 		Ok(self.ctx.as_ref().unwrap())
+	}
+}
+
+impl Debug for ApmlFileAccess {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.debug_struct("ApmlFileAccess")
+			.field("path", &self.path)
+			.field("dirty", &self.dirty)
+			.finish()
 	}
 }
 

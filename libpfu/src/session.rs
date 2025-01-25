@@ -24,7 +24,7 @@ pub struct Session {
 	/// Offline mode switch.
 	pub offline: bool,
 	/// Spec file.
-	pub spec: ApmlFileAccess,
+	pub spec: RwLock<ApmlFileAccess>,
 	/// Sub-packages
 	pub subpackages: Vec<SubpackageSession>,
 
@@ -52,7 +52,7 @@ impl Session {
 			package,
 			dry: false,
 			offline: false,
-			spec,
+			spec: RwLock::new(spec),
 			subpackages,
 			source_storage: RwLock::default(),
 			outbox: Mutex::new(Vec::new()),
@@ -110,13 +110,16 @@ pub struct RecipeSession {
 	/// ABBS sub-package accessor
 	pub suffix: KString,
 	/// Defines
-	pub defines: ApmlFileAccess,
+	pub defines: RwLock<ApmlFileAccess>,
 }
 
 impl RecipeSession {
 	pub fn new(abbs: &AbbsSubPackage, suffix: KString) -> Result<Self> {
 		let defines =
 			ApmlFileAccess::open(abbs.join(format!("defines{}", suffix)))?;
-		Ok(Self { suffix, defines })
+		Ok(Self {
+			suffix,
+			defines: RwLock::new(defines),
+		})
 	}
 }
