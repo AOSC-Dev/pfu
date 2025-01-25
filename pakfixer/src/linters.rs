@@ -1,7 +1,9 @@
 //! List of known linters.
 
 use libpfu::LinterMetadata;
-use libpfu_style::spacing::EXTRA_SPACES_LINTER;
+use libpfu_style::{
+	empty_line::EMPTY_LINE_LINTER, spacing::EXTRA_SPACES_LINTER,
+};
 
 pub type LinterPreset = &'static [&'static LinterMetadata];
 
@@ -20,8 +22,10 @@ pub static LINTER_PRESETS: &[(&str, LinterPreset)] = &[
 	("crazy", CRAZY_LINTERS),
 ];
 
-pub static FULL_LINTERS: LinterPreset = &[EXTRA_SPACES_LINTER];
-pub static BASELINE_LINTERS: LinterPreset = &[EXTRA_SPACES_LINTER];
+pub static FULL_LINTERS: LinterPreset =
+	&[EXTRA_SPACES_LINTER, EMPTY_LINE_LINTER];
+pub static BASELINE_LINTERS: LinterPreset =
+	&[EXTRA_SPACES_LINTER, EMPTY_LINE_LINTER];
 pub static EXTRA_LINTERS: LinterPreset = &[];
 pub static PEDANTIC_LINTERS: LinterPreset = &[];
 pub static CRAZY_LINTERS: LinterPreset = &[];
