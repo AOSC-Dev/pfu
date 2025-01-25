@@ -26,7 +26,7 @@ pub static LINTER_PRESETS: &[(&str, LinterPreset)] = &[
 pub static FULL_LINTERS: LinterPreset =
 	&[EXTRA_SPACES_LINTER, EMPTY_LINE_LINTER, SRCS_LINTER];
 pub static BASELINE_LINTERS: LinterPreset =
-	&[EXTRA_SPACES_LINTER, EMPTY_LINE_LINTER];
+	&[EXTRA_SPACES_LINTER, EMPTY_LINE_LINTER, SRCS_LINTER];
 pub static EXTRA_LINTERS: LinterPreset = &[];
 pub static PEDANTIC_LINTERS: LinterPreset = &[];
 pub static CRAZY_LINTERS: LinterPreset = &[];
