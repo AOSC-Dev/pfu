@@ -29,7 +29,7 @@ impl Linter for ExtraSpacesLinter {
 	async fn apply(&self, sess: &Session) -> Result<()> {
 		for mut apml in walk_apml(sess) {
 			debug!("Looking for extra spaces in {:?}", apml);
-			let ranges = apml
+			let mut ranges = apml
 				.lst()
 				.0
 				.iter()
@@ -72,7 +72,7 @@ impl Linter for ExtraSpacesLinter {
 					}
 					let first_idx = line.first().unwrap().0;
 					let last_idx = line.last().unwrap().0;
-					(first_idx..first_idx + before, last_idx..last_idx - after)
+					(first_idx..first_idx + before, last_idx - after..last_idx)
 				})
 				.collect_vec();
 			debug!(
@@ -80,12 +80,15 @@ impl Linter for ExtraSpacesLinter {
 				ranges.len(),
 				apml
 			);
-			if !sess.dry {
+			if !sess.dry && !ranges.is_empty() {
+				// ranges must be reversed to avoid removing earlier ranges
+				// from invalidating later ranger
+				ranges.reverse();
 				apml.with_upgraded(|apml| {
 					apml.with_lst(|lst| {
 						for (range1, range2) in ranges {
-							lst.0.drain(range1);
 							lst.0.drain(range2);
+							lst.0.drain(range1);
 						}
 					});
 				});
