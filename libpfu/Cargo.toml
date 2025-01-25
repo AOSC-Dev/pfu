@@ -14,8 +14,9 @@ async-trait = "0.1.83"
 kstring = "2.0.2"
 libabbs = { version = "0.1.0", path = "../libabbs" }
 log = "0.4.25"
-opendal = "0.51.1"
+opendal = { version = "0.51.1", features = ["services-github"] }
 ouroboros = "0.18.5"
 parking_lot = "0.12.3"
+regex = "1.11.1"
 reqwest = { version = "0.12.9", default-features = false }
 tokio = { version = "1.43.0", features = ["sync"] }
