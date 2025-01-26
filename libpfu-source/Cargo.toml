@@ -1,6 +1,6 @@
 [package]
 name = "libpfu-source"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 description = "Source-code VFS resolver for ABBS scripts"
 authors.workspace = true
