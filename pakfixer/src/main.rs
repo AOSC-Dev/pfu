@@ -153,6 +153,13 @@ async fn main() -> Result<()> {
 						.with_context(|| format!("saving {:?}", apml))?;
 				}
 			}
+		} else {
+			debug!("Checking APML files sync states for {:?}", &package);
+			for apml in walk_apml(&sess) {
+				if apml.is_dirty() {
+					bail!("APML file is desynced in dry-run session");
+				}
+			}
 		}
 	}
 
