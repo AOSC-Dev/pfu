@@ -229,15 +229,13 @@ impl Linter for Pep517Linter {
 							);
 							return true;
 						}
-						if *is_build {
-							if builddep.iter().any(|dep| dep == pkg) {
-								debug!(
-									"{:?}: Matched dependency package in BUILDDEP: {} -> {}",
-									apml, dep, pkg
-								);
-								return true;
-							}
-						}
+						if *is_build && builddep.iter().any(|dep| dep == pkg) {
+      								debug!(
+      									"{:?}: Matched dependency package in BUILDDEP: {} -> {}",
+      									apml, dep, pkg
+      								);
+      								return true;
+      							}
 						false
 					};
 					if find_dep(uniformed_dep) {
