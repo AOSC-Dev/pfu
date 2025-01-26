@@ -2,6 +2,7 @@
 name = "libpfu-logdbg"
 version = "0.1.0"
 edition = "2024"
+description = "Build-log analysis based lints for libPFU"
 authors.workspace = true
 license.workspace = true
 homepage.workspace = true
