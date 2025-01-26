@@ -145,11 +145,13 @@ async fn main() -> Result<()> {
 				reporter.report(message, &mut stdout)?;
 			}
 		}
-		debug!("Saving APML files for {:?}", &package);
-		for mut apml in walk_apml(&sess) {
-			if apml.is_dirty() {
-				apml.with_upgraded(|apml| apml.save())
-					.with_context(|| format!("saving {:?}", apml))?;
+		if !sess.dry {
+			debug!("Saving APML files for {:?}", &package);
+			for mut apml in walk_apml(&sess) {
+				if apml.is_dirty() {
+					apml.with_upgraded(|apml| apml.save())
+						.with_context(|| format!("saving {:?}", apml))?;
+				}
 			}
 		}
 	}
