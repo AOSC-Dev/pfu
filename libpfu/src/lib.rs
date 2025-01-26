@@ -1,4 +1,4 @@
-//! libpfu (PackFixerUp) is a library for linting and fixing AOSC OS
+//! libpfu (PackFixerUpper) is a library for linting and fixing AOSC OS
 //! package build script automatically.
 
 use std::{fmt::Debug, hash::Hash};
