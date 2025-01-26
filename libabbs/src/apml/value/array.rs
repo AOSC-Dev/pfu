@@ -30,6 +30,7 @@ impl StringArray {
 			if line_len + value.len() > 75 {
 				// start a new line
 				words.push(lst::Word::Literal(vec![
+					lst::LiteralPart::String(" ".into()),
 					lst::LiteralPart::LineContinuation,
 					lst::LiteralPart::String("\t".into()),
 				]));
