@@ -111,6 +111,44 @@ impl AbbsTree {
 				AbbsError::PackageNotFound(name.as_ref().to_string())
 			})
 	}
+
+	/// Returns a subpackage with the given name.
+	///
+	/// This will first try to find the package in the source package
+	/// with the same name. If failed to do so, it will fallback to
+	/// search the whole tree.
+	///
+	/// Thus this is a very high-cost operation and you must use it
+	/// carefully.
+	pub fn find_subpackage<S: AsRef<str>>(
+		&self,
+		name: S,
+	) -> AbbsResult<AbbsSubPackage> {
+		let name = name.as_ref();
+		match self.find_package(name) {
+			Ok(package) => {
+				for subpkg in package.subpackages()? {
+					if let Ok(subpkg_name) = subpkg.name() {
+						if subpkg_name == name {
+							return Ok(subpkg);
+						}
+					}
+				}
+			}
+			Err(AbbsError::PackageNotFound(_)) => {}
+			Err(err) => return Err(err),
+		}
+		for package in self.all_packages()? {
+			for subpkg in package.subpackages()? {
+				if let Ok(subpkg_name) = subpkg.name() {
+					if subpkg_name == name {
+						return Ok(subpkg);
+					}
+				}
+			}
+		}
+		Err(AbbsError::PackageNotFound(name.to_string()))
+	}
 }
 
 #[derive(Debug, Error)]
@@ -437,6 +475,15 @@ mod test {
 			3
 		);
 		assert_eq!(tree.all_packages().unwrap().len(), 3);
+		assert_eq!(tree.find_package("test1").unwrap().name(), "test1");
+		assert_eq!(
+			tree.find_subpackage("test1").unwrap().name().unwrap(),
+			"test1"
+		);
+		assert_eq!(
+			tree.find_subpackage("test2-host").unwrap().name().unwrap(),
+			"test2-host"
+		);
 	}
 
 	#[test]
