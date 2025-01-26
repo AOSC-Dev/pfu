@@ -45,6 +45,11 @@ impl StringArray {
 		}
 		lst::Text(vec![lst::TextUnit::DoubleQuote(words)])
 	}
+
+	/// Unwraps the backing vec.
+	pub fn unwrap(self) -> Vec<String> {
+		self.0
+	}
 }
 
 impl Deref for StringArray {
@@ -152,6 +157,11 @@ impl CollapsedArray {
 		}
 		tokens
 	}
+
+	/// Unwraps the backing vec.
+	pub fn unwrap(self) -> Vec<String> {
+		self.0
+	}
 }
 
 impl Deref for CollapsedArray {
@@ -214,6 +224,11 @@ impl ExpandedArray {
 			tokens.push(lst::ArrayToken::Newline);
 		}
 		tokens
+	}
+
+	/// Unwraps the backing vec.
+	pub fn unwrap(self) -> Vec<String> {
+		self.0
 	}
 }
 
