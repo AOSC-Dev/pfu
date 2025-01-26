@@ -2,6 +2,7 @@
 name = "libpfu-style"
 version = "0.1.0"
 edition = "2024"
+description = "Code style lints for libPFU"
 authors.workspace = true
 license.workspace = true
 homepage.workspace = true
