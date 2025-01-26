@@ -5,7 +5,10 @@ use std::{io::Read, sync::LazyLock};
 use anyhow::{Result, anyhow, bail};
 use bytes::Buf;
 use futures::executor::block_on;
-use libabbs::apml::value::{array::StringArray, union::Union};
+use libabbs::apml::{
+	ApmlContext,
+	value::{array::StringArray, union::Union},
+};
 use log::{debug, info, warn};
 use opendal::{
 	Operator,
@@ -16,6 +19,8 @@ use regex::Regex;
 use reqwest::ClientBuilder;
 use tempfile::tempfile;
 
+pub mod pypi;
+
 static REGEX_GH_URL: LazyLock<Regex> = LazyLock::new(|| {
 	Regex::new(
 		r##"http(s|)://github\.com/(?<user>[a-zA-Z_-]+)/(?<repo>[a-zA-Z_-]+)"##,
@@ -24,7 +29,9 @@ static REGEX_GH_URL: LazyLock<Regex> = LazyLock::new(|| {
 });
 
 /// Initializes the source code access for a context.
-pub async fn open(srcs: String) -> Result<Operator> {
+pub async fn open(ctx: ApmlContext) -> Result<Operator> {
+	let srcs = ctx.read("SRCS").into_string();
+	let version = ctx.read("VER").into_string();
 	let srcs = StringArray::from(srcs);
 
 	if srcs.len() == 1 {
@@ -38,57 +45,75 @@ pub async fn open(srcs: String) -> Result<Operator> {
 		match un.tag.as_str() {
 			"tarball" | "tbl" => {
 				if let Some(url) = un.argument {
-					if let Some(cap) = REGEX_GH_URL.captures(&url) {
-						let owner = &cap["user"];
-						let repo = &cap["repo"];
-						debug!(
-							"recognized GitHub repository {}/{} from {}",
-							owner, repo, url
-						);
-						return Ok(Operator::new(
-							Github::default().owner(owner).repo(repo),
-						)?
-						.layer(RetryLayer::new())
-						.finish());
+					if let Some(fs) = find_alt_fs(&url).await? {
+						return Ok(fs);
 					}
 					return fetch_tarball(url).await;
 				}
 			}
 			"git" => {
 				if let Some(url) = un.argument {
-					if let Some(cap) = REGEX_GH_URL.captures(&url) {
-						let owner = &cap["user"];
-						let repo = &cap["repo"];
-						debug!(
-							"recognized GitHub repository {}/{} from {}",
-							owner, repo, url
-						);
-						return Ok(Operator::new(
-							Github::default().owner(owner).repo(repo),
-						)?
-						.layer(RetryLayer::new())
-						.finish());
+					if let Some(fs) = find_alt_fs(&url).await? {
+						return Ok(fs);
 					}
+				}
+			}
+			"pypi" => {
+				if let Some(package) = un.argument {
+					return pypi::load(
+						&package,
+						un.properties.get("version").unwrap_or(&version),
+					)
+					.await;
 				}
 			}
 			_ => {
 				warn!("unsupported source type: {}", un.tag);
 			}
 		}
+		warn!("failed to recognize source provider: {}", &src);
 	} else {
 		warn!("multiple sources are not supported yet");
 	}
 	Ok(Operator::new(Memory::default())?.finish())
 }
 
-async fn fetch_tarball(url: String) -> Result<Operator> {
-	info!("Downloading tarball: {}", url);
-	let client = ClientBuilder::new()
+/// Attempts to create alternative FS from the given URL.
+///
+/// For example, this will attempt to extract GitHub repository information
+/// and create a GitHub FS. This can be used to avoid having to download the
+/// whole tarball.
+async fn find_alt_fs(url: &str) -> Result<Option<Operator>> {
+	if let Some(cap) = REGEX_GH_URL.captures(&url) {
+		let owner = &cap["user"];
+		let repo = &cap["repo"];
+		debug!(
+			"recognized GitHub repository {}/{} from {}",
+			owner, repo, url
+		);
+		Ok(Some(
+			Operator::new(Github::default().owner(owner).repo(repo))?
+				.layer(RetryLayer::new())
+				.finish(),
+		))
+	} else {
+		Ok(None)
+	}
+}
+
+fn http_client() -> Result<reqwest::Client> {
+	Ok(ClientBuilder::new()
 		.user_agent(format!(
 			"libpfu/{} (https://github.com/AOSC-Dev/pfu)",
 			env!("CARGO_PKG_VERSION")
 		))
-		.build()?;
+		.build()?)
+}
+
+/// Fetchs a compressed tarball and loads it into a memory FS.
+async fn fetch_tarball(url: String) -> Result<Operator> {
+	info!("Downloading tarball: {}", url);
+	let client = http_client()?;
 	let resp = client
 		.execute(client.get(&url).build()?)
 		.await?
@@ -99,6 +124,7 @@ async fn fetch_tarball(url: String) -> Result<Operator> {
 	Ok(fs)
 }
 
+/// Loads a compressed tarball into a memory FS.
 async fn load_compressed_tarball(
 	name: &str,
 	reader: impl Read,
@@ -130,6 +156,7 @@ async fn load_compressed_tarball(
 	}
 }
 
+/// Loads a uncompressed tarball into a memory FS.
 async fn load_tarball(mut reader: impl Read) -> Result<Operator> {
 	let fs = Operator::new(Memory::default())?.finish();
 

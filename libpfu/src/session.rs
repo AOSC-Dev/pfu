@@ -66,25 +66,22 @@ impl Session {
 			// FIXME: improve offline mode handling
 			bail!("offline mode")
 		} else if let Some(result) = self.source_storage.read().await.as_ref() {
-  				Ok(result.clone())
-  			} else {
-  				let mut write = self.source_storage.write().await;
-  				if let Some(result) = write.as_ref() {
-  					Ok(result.clone())
-  				} else {
-  					*write = Some(
-  						libpfu_source::open(block_on(async {
-  							self.spec
-  								.write()
-  								.ctx()
-  								.map(|ctx| ctx.read("SRCS").into_string())
-  						})?)
-  						.await?
-  						.into(),
-  					);
-  					Ok(write.as_ref().unwrap().clone())
-  				}
-  			}
+			Ok(result.clone())
+		} else {
+			let mut write = self.source_storage.write().await;
+			if let Some(result) = write.as_ref() {
+				Ok(result.clone())
+			} else {
+				*write = Some(
+					libpfu_source::open(block_on(async {
+						self.spec.write().ctx().cloned()
+					})?)
+					.await?
+					.into(),
+				);
+				Ok(write.as_ref().unwrap().clone())
+			}
+		}
 	}
 
 	pub fn take_messages(&self) -> Vec<LintMessage> {
