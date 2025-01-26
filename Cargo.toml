@@ -7,3 +7,12 @@ authors = ["xtex <xtex@aosc.io>"]
 license = "GPL-3.0-or-later"
 homepage = "https://github.com/xtexChooser/pfu"
 repository = "https://github.com/xtexChooser/pfu.git"
+
+[workspace.metadata.release]
+pre-release-commit-message = "{{crate_name}}: release {{version}}"
+tag-message = "{{crate_name}}: release {{version}}"
+tag-name = "{{crate_name}}-{{version}}"
+consolidate-commits = false
+allow-branch = ["main"]
+sign-commit = true
+sign-tag = true
