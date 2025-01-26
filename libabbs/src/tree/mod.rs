@@ -1,11 +1,16 @@
 //! ABBS tree operators.
 
 use std::{
-	fmt::{Debug, Display}, ops::Deref, path::{Path, PathBuf}
+	fmt::{Debug, Display},
+	fs,
+	ops::Deref,
+	path::{Path, PathBuf},
 };
 
 use kstring::KString;
 use thiserror::Error;
+
+use crate::apml::{ApmlContext, ApmlError};
 
 #[derive(Debug, Clone)]
 pub struct AbbsTree(PathBuf);
@@ -114,6 +119,8 @@ pub enum AbbsError {
 	IoError(#[from] std::io::Error),
 	#[error("Package not found: {0}")]
 	PackageNotFound(String),
+	#[error(transparent)]
+	ApmlError(#[from] ApmlError),
 }
 
 pub type AbbsResult<T> = Result<T, AbbsError>;
@@ -341,6 +348,19 @@ impl AbbsSubPackage {
 			.expect("ABBS source package name must be ASCII string")
 	}
 
+	/// Returns the package name of sub-package.
+	///
+	/// Note: getting the name requires evaluating defines file
+	/// and is a high-cost operation. The caller should cache the name
+	/// as much as possible.
+	pub fn name(&self) -> AbbsResult<String> {
+		Ok(ApmlContext::eval_source(&fs::read_to_string(
+			self.join("defines"),
+		)?)?
+		.read("PKGNAME")
+		.into_string())
+	}
+
 	/// Returns the source package.
 	pub fn source_package(&self) -> AbbsSourcePackage {
 		AbbsSourcePackage::new(
@@ -466,7 +486,9 @@ mod test {
 		let host = pkg.subpackage("01-host").unwrap();
 		let guest = pkg.subpackage("02-guest").unwrap();
 		assert_eq!(host.dir_name(), "01-host");
+		assert_eq!(host.name().unwrap(), "test2-host");
 		assert_eq!(guest.dir_name(), "02-guest");
+		assert_eq!(guest.name().unwrap(), "test2-guest");
 		assert_eq!(host.modifier_suffixes().unwrap().len(), 2);
 		assert!(
 			host.modifier_suffixes()
