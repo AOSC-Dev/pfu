@@ -93,11 +93,13 @@ impl Linter for SrcsLinter {
 							.snippet(Snippet::new_variable(sess, apml, "SRCS"))
 							.emit(sess);
 					});
-					apml.with_upgraded(|apml| {
-						apml.with_text(|text| {
-							text.replace("http://", "https://")
-						})
-					})?;
+					if !sess.dry {
+						apml.with_upgraded(|apml| {
+							apml.with_text(|text| {
+								text.replace("http://", "https://")
+							})
+						})?;
+					}
 				}
 
 				let un = if src.starts_with("https://")
