@@ -132,7 +132,10 @@ async fn load_compressed_tarball(
 	if name.ends_with(".tar") {
 		debug!("Recognized bare tarball");
 		load_tarball(reader).await
-	} else if name.ends_with(".tar.gz") || name.ends_with(".tar.gzip") {
+	} else if name.ends_with(".tar.gz")
+		|| name.ends_with(".tar.gzip")
+		|| name.ends_with(".tgz")
+	{
 		debug!("Recognized tarball + gzip");
 		let reader = flate2::read::GzDecoder::new(reader);
 		load_tarball(reader).await
