@@ -87,10 +87,6 @@ impl Linter for Pep517Linter {
 			if let Some(backend) = pyproj.build_system.build_backend {
 				py_deps.push((true, backend));
 			}
-			debug!(
-				"Collected Python dependencies for {:?}: {:?}",
-				sess.package, py_deps
-			);
 			let mut py_deps = py_deps
 				.into_iter()
 				.filter_map(|(is_build, dep)| {
@@ -126,6 +122,10 @@ impl Linter for Pep517Linter {
 					)
 				})
 				.collect_vec();
+			debug!(
+				"Collected Python dependencies for {:?}: {:?}",
+				sess.package, py_deps
+			);
 
 			for mut apml in walk_defines(sess) {
 				let abtype = apml.with_upgraded(|apml| {
@@ -230,12 +230,12 @@ impl Linter for Pep517Linter {
 							return true;
 						}
 						if *is_build && builddep.iter().any(|dep| dep == pkg) {
-      								debug!(
-      									"{:?}: Matched dependency package in BUILDDEP: {} -> {}",
-      									apml, dep, pkg
-      								);
-      								return true;
-      							}
+							debug!(
+								"{:?}: Matched dependency package in BUILDDEP: {} -> {}",
+								apml, dep, pkg
+							);
+							return true;
+						}
 						false
 					};
 					if find_dep(uniformed_dep) {
