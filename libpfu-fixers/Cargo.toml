@@ -2,6 +2,7 @@
 name = "libpfu-fixers"
 version = "0.1.0"
 edition = "2024"
+description = "Source-code analysis based lints for libPFU"
 authors.workspace = true
 license.workspace = true
 homepage.workspace = true
