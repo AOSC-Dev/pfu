@@ -5,8 +5,8 @@ members = ["libabbs", "libpfu", "libpfu-fixers", "libpfu-logdbg", "libpfu-source
 [workspace.package]
 authors = ["xtex <xtex@aosc.io>"]
 license = "GPL-3.0-or-later"
-homepage = "https://github.com/xtexChooser/pfu"
-repository = "https://github.com/xtexChooser/pfu.git"
+homepage = "https://github.com/AOSC-Dev/pfu"
+repository = "https://github.com/AOSC-Dev/pfu.git"
 
 [workspace.metadata.release]
 pre-release-commit-message = "{{crate_name}}: release {{version}}"
