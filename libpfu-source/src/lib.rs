@@ -110,7 +110,7 @@ fn http_client() -> Result<reqwest::Client> {
 		.build()?)
 }
 
-/// Fetchs a compressed tarball and loads it into a memory FS.
+/// Fetches a compressed tarball and loads it into a memory FS.
 async fn fetch_tarball(url: String) -> Result<Operator> {
 	info!("Downloading tarball: {}", url);
 	let client = http_client()?;
