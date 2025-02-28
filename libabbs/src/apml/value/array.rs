@@ -298,7 +298,7 @@ mod test {
 		assert_eq!(array.len(), 4);
 		assert_eq!(
 			array.print().to_string(),
-			format!("\"{long_str}\\\n\t{long_str} 1\\\n\t{long_str}\"")
+			format!("\"{long_str} \\\n\t{long_str} 1 \\\n\t{long_str}\"")
 		);
 	}
 
