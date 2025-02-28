@@ -1,7 +1,7 @@
 //! List of known linters.
 
 use libpfu::LinterMetadata;
-use libpfu_fixers::pep517::PEP517_LINTER;
+use libpfu_fixers::{fish_shell::FISH_SHELL_LINTER, pep517::PEP517_LINTER};
 use libpfu_style::{
 	chkupd::CHKUPDATE_LINTER, empty_line::EMPTY_LINE_LINTER,
 	sources::SRCS_LINTER, spacing::EXTRA_SPACES_LINTER,
@@ -29,6 +29,7 @@ pub static FULL_LINTERS: LinterPreset = &[
 	EMPTY_LINE_LINTER,
 	SRCS_LINTER,
 	CHKUPDATE_LINTER,
+	FISH_SHELL_LINTER,
 	PEP517_LINTER,
 ];
 pub static BASELINE_LINTERS: LinterPreset = &[
@@ -36,6 +37,7 @@ pub static BASELINE_LINTERS: LinterPreset = &[
 	EMPTY_LINE_LINTER,
 	SRCS_LINTER,
 	CHKUPDATE_LINTER,
+	FISH_SHELL_LINTER,
 ];
 pub static EXTRA_LINTERS: LinterPreset = &[PEP517_LINTER];
 pub static PEDANTIC_LINTERS: LinterPreset = &[];

@@ -1,7 +1,7 @@
 //! libpfu (PackFixerUpper) is a library for linting and fixing AOSC OS
 //! package build script automatically.
 
-use std::{fmt::Debug, hash::Hash};
+use std::{fmt::Debug, hash::Hash, path::PathBuf};
 
 use anyhow::Result;
 use apml::ApmlFileAccess;
@@ -131,6 +131,22 @@ pub fn walk_defines(
 	for subpkg in &sess.subpackages {
 		for recipe in &subpkg.recipes {
 			result.push(recipe.defines.upgradable_read());
+		}
+	}
+	result
+}
+
+pub fn walk_build_scripts(sess: &Session) -> Vec<PathBuf> {
+	let mut result = vec![];
+	for subpkg in &sess.subpackages {
+		for recipe in &subpkg.recipes {
+			for script in ["prepare", "build", "beyond"] {
+				let path =
+					subpkg.abbs.join(&format!("{}{}", script, recipe.suffix));
+				if path.is_file() {
+					result.push(path);
+				}
+			}
 		}
 	}
 	result

@@ -1,6 +1,6 @@
 //! Lint messages.
 
-use std::borrow::Cow;
+use std::{borrow::Cow, path::Path};
 
 use libabbs::apml::lst;
 
@@ -59,6 +59,14 @@ pub struct Snippet {
 }
 
 impl Snippet {
+	pub fn new_file(path: &Path) -> Self {
+		Self {
+			path: path.to_string_lossy().into_owned(),
+			line: None,
+			source: None,
+		}
+	}
+
 	pub fn new_token(
 		sess: &Session,
 		apml: &ApmlFileAccess,
