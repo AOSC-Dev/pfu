@@ -25,7 +25,7 @@ pub async fn load(package: &str, version: &str) -> Result<Operator> {
 		"https://pypi.io/packages/source/{}/{}/{}-{}.tar.gz",
 		prefix, package, package, version
 	);
-	return fetch_tarball(url).await;
+	fetch_tarball(url).await
 }
 
 async fn collect_alt_hints(package: &str) -> Result<Vec<String>> {

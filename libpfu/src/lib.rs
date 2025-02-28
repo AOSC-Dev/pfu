@@ -142,7 +142,7 @@ pub fn walk_build_scripts(sess: &Session) -> Vec<PathBuf> {
 		for recipe in &subpkg.recipes {
 			for script in ["prepare", "build", "beyond"] {
 				let path =
-					subpkg.abbs.join(&format!("{}{}", script, recipe.suffix));
+					subpkg.abbs.join(format!("{}{}", script, recipe.suffix));
 				if path.is_file() {
 					result.push(path);
 				}

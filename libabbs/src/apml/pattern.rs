@@ -186,7 +186,7 @@ pub fn bash_pattern<'a>(
 	exclude: &'static str,
 ) -> IResult<&'a str, BashPattern<'a>> {
 	many1(|s| pattern_part(s, exclude))
-		.map(|tokens| BashPattern(tokens))
+		.map(BashPattern)
 		.parse(i)
 }
 

@@ -84,7 +84,7 @@ pub async fn open(ctx: ApmlContext) -> Result<Operator> {
 /// and create a GitHub FS. This can be used to avoid having to download the
 /// whole tarball.
 async fn find_alt_fs(url: &str) -> Result<Option<Operator>> {
-	if let Some(cap) = REGEX_GH_URL.captures(&url) {
+	if let Some(cap) = REGEX_GH_URL.captures(url) {
 		let owner = &cap["user"];
 		let repo = &cap["repo"];
 		debug!(
