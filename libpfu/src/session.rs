@@ -72,12 +72,13 @@ impl Session {
 			if let Some(result) = write.as_ref() {
 				Ok(result.clone())
 			} else {
-				*write = Some(Arc::new(
+				*write = Some(
 					libpfu_source::open(block_on(async {
 						self.spec.write().ctx().cloned()
 					})?)
-					.await?,
-				));
+					.await?
+					.into(),
+				);
 				Ok(write.as_ref().unwrap().clone())
 			}
 		}
