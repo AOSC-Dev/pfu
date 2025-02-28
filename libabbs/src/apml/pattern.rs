@@ -114,7 +114,11 @@ impl BashPattern<'_> {
 					result.push_str(lazy_flag);
 				}
 				GlobPart::AnyChar => result.push_str(".?"),
-				GlobPart::Range(_) => todo!(),
+				GlobPart::Range(range) => {
+					result.push('[');
+					result.push_str(range);
+					result.push(']');
+				}
 				GlobPart::ZeroOrOneOf(list) => {
 					list.build_regex(result, greedy);
 					result.push('?');
@@ -252,7 +256,7 @@ mod test {
 		]);
 		assert_eq!(
 			bash_pattern(
-				"abc*?\\a[:ascii:]a?(a|b)*(a|b)+(a|b)@(a|b)!(a|b)}a",
+				"abc*?\\a[:ascii:]a?(a|b)*(a|b)+(a|b)@(a|b)!(a|b)[a-z]}a",
 				"}"
 			)
 			.unwrap(),
@@ -270,16 +274,17 @@ mod test {
 					GlobPart::OneOrMoreOf(pat_list.clone()),
 					GlobPart::OneOf(pat_list.clone()),
 					GlobPart::Not(pat_list.clone()),
+					GlobPart::Range(Cow::Borrowed("a-z")),
 				])
 			)
 		);
 
 		let mut result = String::new();
-		bash_pattern("abc*?\\aa?(a|b)*(a|b)+(a|b)@(a|b)!(a|b)}a", "}")
+		bash_pattern("abc*?\\aa?(a|b)*(a|b)+(a|b)@(a|b)!(a|b)[a-z]}a", "}")
 			.unwrap()
 			.1
 			.build_regex(&mut result, false);
-		assert_eq!(result, "abc.*?.?aa(a|b)?(a|b)*?(a|b)+?(a|b)(?!(a|b)).*");
+		assert_eq!(result, "abc.*?.?aa(a|b)?(a|b)*?(a|b)+?(a|b)(?!(a|b)).*[a-z]");
 
 		let mut result = String::new();
 		bash_pattern("abc*?\\aa?(a|b)*(a|b)+(a|b)@(a|b)!(a|b)}a", "}")
