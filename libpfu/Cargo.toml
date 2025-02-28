@@ -16,7 +16,7 @@ kstring = "2.0.2"
 libabbs = { version = "0.1.3", path = "../libabbs" }
 libpfu-source = { version = "0.2.0", path = "../libpfu-source" }
 log = "0.4.25"
-opendal = "0.51.1"
+opendal = "0.52.0"
 ouroboros = "0.18.5"
 parking_lot = "0.12.3"
 tokio = { version = "1.43.0", features = ["sync"] }

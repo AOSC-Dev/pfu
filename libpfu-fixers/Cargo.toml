@@ -16,7 +16,7 @@ libabbs = { version = "0.1.3", path = "../libabbs" }
 libpfu = { version = "0.1.0", path = "../libpfu" }
 log = "0.4.25"
 oma-contents = { version = "0.16.0", features = ["aosc"] }
-opendal = "0.51.1"
+opendal = "0.52.0"
 reqwest = { version = "0.12.9", default-features = false }
 serde = { version = "1.0.217", features = ["derive"] }
 toml = "0.8.19"

@@ -6,7 +6,7 @@ use std::{
 };
 
 use nom::{
-	IResult,
+	IResult, Parser,
 	branch::alt,
 	bytes::complete::{tag, take_until1, take_while1},
 	character::complete::{anychar, char},
@@ -185,9 +185,9 @@ pub fn bash_pattern<'a>(
 	i: &'a str,
 	exclude: &'static str,
 ) -> IResult<&'a str, BashPattern<'a>> {
-	map(many1(|s| pattern_part(s, exclude)), |tokens| {
-		BashPattern(tokens)
-	})(i)
+	many1(|s| pattern_part(s, exclude))
+		.map(|tokens| BashPattern(tokens))
+		.parse(i)
 }
 
 #[inline]
@@ -233,15 +233,15 @@ fn pattern_part<'a>(
 			take_while1(|ch| !"[*?\\".contains(ch) && !exclude.contains(ch)),
 			|s| GlobPart::String(Cow::Borrowed(s)),
 		),
-	))(i)
+	))
+	.parse(i)
 }
 
 #[inline]
 fn pattern_list(i: &str) -> IResult<&str, PatternList> {
-	map(
-		many0(terminated(|i| bash_pattern(i, "|)"), opt(char('|')))),
-		PatternList,
-	)(i)
+	many0(terminated(|i| bash_pattern(i, "|)"), opt(char('|'))))
+		.map(PatternList)
+		.parse(i)
 }
 
 #[cfg(test)]
@@ -284,7 +284,10 @@ mod test {
 			.unwrap()
 			.1
 			.build_regex(&mut result, false);
-		assert_eq!(result, "abc.*?.?aa(a|b)?(a|b)*?(a|b)+?(a|b)(?!(a|b)).*[a-z]");
+		assert_eq!(
+			result,
+			"abc.*?.?aa(a|b)?(a|b)*?(a|b)+?(a|b)(?!(a|b)).*[a-z]"
+		);
 
 		let mut result = String::new();
 		bash_pattern("abc*?\\aa?(a|b)*(a|b)+(a|b)@(a|b)!(a|b)}a", "}")

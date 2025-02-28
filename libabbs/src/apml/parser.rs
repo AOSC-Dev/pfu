@@ -3,7 +3,7 @@
 use std::{borrow::Cow, sync::Arc};
 
 use nom::{
-	IResult,
+	IResult, Parser,
 	branch::alt,
 	bytes::complete::{tag, take, take_till, take_while, take_while1},
 	character::complete::{anychar, char, newline, one_of},
@@ -34,7 +34,7 @@ impl From<nom::Err<nom::error::Error<&str>>> for ParseError {
 
 /// Parses a complete APML source into LST.
 pub fn apml_lst(i: &str) -> IResult<&str, ApmlLst> {
-	map(many0(token), ApmlLst)(i)
+	many0(token).map(ApmlLst).parse(i)
 }
 
 #[inline]
@@ -48,31 +48,31 @@ fn token(i: &str) -> IResult<&str, Token> {
 		comment_token,
 		// variable definition
 		map(variable_def, Token::Variable),
-	))(i)
+	))
+	.parse(i)
 }
 
 #[inline]
 fn spacy_char(i: &str) -> IResult<&str, char> {
-	alt((char(' '), char('\t')))(i)
+	alt((char(' '), char('\t'))).parse(i)
 }
 
 #[inline]
 fn comment_token(i: &str) -> IResult<&str, Token> {
-	map(preceded(char('#'), take_till(|ch| ch == '\n')), |comment| {
-		Token::Comment(Cow::Borrowed(comment))
-	})(i)
+	preceded(char('#'), take_till(|ch| ch == '\n'))
+		.map(|comment| Token::Comment(Cow::Borrowed(comment)))
+		.parse(i)
 }
 
 #[inline]
 fn variable_def(i: &str) -> IResult<&str, VariableDefinition> {
-	map(
-		tuple((variable_name, variable_op, variable_value)),
-		|(name, op, value)| VariableDefinition {
+	tuple((variable_name, variable_op, variable_value))
+		.map(|(name, op, value)| VariableDefinition {
 			name: Cow::Borrowed(name),
 			op,
 			value,
-		},
-	)(i)
+		})
+		.parse(i)
 }
 
 #[inline]
@@ -80,7 +80,8 @@ fn variable_op(i: &str) -> IResult<&str, VariableOp> {
 	alt((
 		value(VariableOp::Assignment, char('=')),
 		value(VariableOp::Append, tag("+=")),
-	))(i)
+	))
+	.parse(i)
 }
 
 #[inline]
@@ -101,7 +102,8 @@ fn variable_value(i: &str) -> IResult<&str, VariableValue> {
 			|s| text_or_null(s, &|ch| ch != ' ' && ch != '#'),
 			|text| VariableValue::String(Arc::new(text)),
 		),
-	))(i)
+	))
+	.parse(i)
 }
 
 #[inline]
@@ -120,7 +122,8 @@ fn array_token(i: &str) -> IResult<&str, ArrayToken> {
 			|s| text(s, &|ch| ch != ' ' && ch != '#' && ch != ')'),
 			|text| ArrayToken::Element(Arc::new(text)),
 		),
-	))(i)
+	))
+	.parse(i)
 }
 
 #[inline]
@@ -128,7 +131,7 @@ fn text<'a, Cond>(i: &'a str, cond: &Cond) -> IResult<&'a str, Text<'a>>
 where
 	Cond: Fn(char) -> bool,
 {
-	map(many1(|s| text_unit(s, &cond)), Text)(i)
+	many1(|s| text_unit(s, &cond)).map(Text).parse(i)
 }
 
 #[inline]
@@ -136,7 +139,7 @@ fn text_or_null<'a, Cond>(i: &'a str, cond: &Cond) -> IResult<&'a str, Text<'a>>
 where
 	Cond: Fn(char) -> bool,
 {
-	map(many0(|s| text_unit(s, &cond)), Text)(i)
+	many0(|s| text_unit(s, &cond)).map(Text).parse(i)
 }
 
 #[inline]
@@ -160,7 +163,7 @@ where
 		delimited(
 			char('"'),
 			map(
-				many0(|s| word(s, &|_| true, &one_of("$\\\"`"))),
+				many0(|s| word(s, &|_| true, &mut one_of("$\\\"`"))),
 				TextUnit::DoubleQuote,
 			),
 			char('"'),
@@ -168,22 +171,27 @@ where
 		// unquoted
 		map(
 			many1(|s| {
-				word(s, &|ch| cond(ch) && ch != '\'' && ch != '\n', &anychar)
+				word(
+					s,
+					&|ch| cond(ch) && ch != '\'' && ch != '\n',
+					&mut anychar,
+				)
 			}),
 			TextUnit::Unquoted,
 		),
-	))(i)
+	))
+	.parse(i)
 }
 
 #[inline]
 fn word<'a, Cond, EscCond>(
 	i: &'a str,
 	cond: &Cond,
-	escape_cond: &EscCond,
+	escape_cond: &mut EscCond,
 ) -> IResult<&'a str, Word<'a>>
 where
 	Cond: Fn(char) -> bool,
-	EscCond: Fn(&'a str) -> IResult<&'a str, char>,
+	EscCond: FnMut(&'a str) -> IResult<&'a str, char>,
 {
 	alt((
 		// braced variable
@@ -201,18 +209,19 @@ where
 		),
 		// literal
 		map(many1(|s| literal_part(s, cond, escape_cond)), Word::Literal),
-	))(i)
+	))
+	.parse(i)
 }
 
 #[inline]
 fn literal_part<'a, Cond, EscCond>(
 	i: &'a str,
 	literal_cond: &Cond,
-	escape_cond: &EscCond,
+	escape_cond: &mut EscCond,
 ) -> IResult<&'a str, LiteralPart<'a>>
 where
 	Cond: Fn(char) -> bool,
-	EscCond: Fn(&'a str) -> IResult<&'a str, char>,
+	EscCond: FnMut(&'a str) -> IResult<&'a str, char>,
 {
 	alt((
 		// line continuation
@@ -228,7 +237,8 @@ where
 			take_while1(|ch| !"$\"\\".contains(ch) && literal_cond(ch)),
 			|s| LiteralPart::String(Cow::Borrowed(s)),
 		),
-	))(i)
+	))
+	.parse(i)
 }
 
 #[inline]
@@ -247,22 +257,23 @@ fn braced_expansion(i: &str) -> IResult<&str, BracedExpansion> {
 				modifier,
 			},
 		),
-	))(i)
+	))
+	.parse(i)
 }
 
 #[inline]
 fn expansion_modifier(i: &str) -> IResult<&str, ExpansionModifier> {
 	#[inline]
 	fn expansion_glob(i: &str) -> IResult<&str, Arc<BashPattern>> {
-		map(|s| bash_pattern(s, "}"), Arc::new)(i)
+		map(|s| bash_pattern(s, "}"), Arc::new).parse(i)
 	}
 	#[inline]
 	fn expansion_glob_replace(i: &str) -> IResult<&str, Arc<BashPattern>> {
-		map(|s| bash_pattern(s, "}/"), Arc::new)(i)
+		map(|s| bash_pattern(s, "}/"), Arc::new).parse(i)
 	}
 	#[inline]
 	fn expansion_text(i: &str) -> IResult<&str, Arc<Text>> {
-		map(|s| text_or_null(s, &|ch| ch != '}'), Arc::new)(i)
+		map(|s| text_or_null(s, &|ch| ch != '}'), Arc::new).parse(i)
 	}
 	alt((
 		map(
@@ -368,19 +379,17 @@ fn expansion_modifier(i: &str) -> IResult<&str, ExpansionModifier> {
 		substring_expansion_modifier,
 		value(ExpansionModifier::ArrayElements, tag("[@]")),
 		value(ExpansionModifier::SingleWordElements, tag("[*]")),
-	))(i)
+	))
+	.parse(i)
 }
 
 #[inline]
 fn substring_expansion_modifier(i: &str) -> IResult<&str, ExpansionModifier> {
 	#[inline]
 	fn number(i: &str) -> IResult<&str, Cow<'_, str>> {
-		map(
-			take_while1(|ch: char| {
-				ch.is_ascii_digit() || " \n-\t".contains(ch)
-			}),
-			Cow::Borrowed,
-		)(i)
+		take_while1(|ch: char| ch.is_ascii_digit() || " \n-\t".contains(ch))
+			.map(Cow::Borrowed)
+			.parse(i)
 	}
 	preceded(
 		char(':'),
@@ -388,7 +397,8 @@ fn substring_expansion_modifier(i: &str) -> IResult<&str, ExpansionModifier> {
 			pair(number, opt(preceded(char(':'), number))),
 			|(offset, length)| ExpansionModifier::Substring { offset, length },
 		),
-	)(i)
+	)
+	.parse(i)
 }
 
 #[cfg(test)]
@@ -905,41 +915,50 @@ MESON_AFTER__AMD64=" \
 		variable_def("?=\n").unwrap_err();
 		assert_eq!(
 			variable_def("a=\n").unwrap(),
-			("\n", VariableDefinition {
-				name: Cow::Borrowed("a"),
-				op: VariableOp::Assignment,
-				value: VariableValue::String(Arc::new(Text(vec![])))
-			})
+			(
+				"\n",
+				VariableDefinition {
+					name: Cow::Borrowed("a"),
+					op: VariableOp::Assignment,
+					value: VariableValue::String(Arc::new(Text(vec![])))
+				}
+			)
 		);
 		assert_eq!(
 			variable_def("a=b$0\n").unwrap(),
-			("\n", VariableDefinition {
-				name: Cow::Borrowed("a"),
-				op: VariableOp::Assignment,
-				value: VariableValue::String(Arc::new(Text(vec![
-					TextUnit::Unquoted(vec![
-						Word::Literal(vec![LiteralPart::String(
-							Cow::Borrowed("b")
-						)]),
-						Word::UnbracedVariable(Cow::Borrowed("0")),
-					])
-				])))
-			})
+			(
+				"\n",
+				VariableDefinition {
+					name: Cow::Borrowed("a"),
+					op: VariableOp::Assignment,
+					value: VariableValue::String(Arc::new(Text(vec![
+						TextUnit::Unquoted(vec![
+							Word::Literal(vec![LiteralPart::String(
+								Cow::Borrowed("b")
+							)]),
+							Word::UnbracedVariable(Cow::Borrowed("0")),
+						])
+					])))
+				}
+			)
 		);
 		assert_eq!(
 			variable_def("a+=b$0\n").unwrap(),
-			("\n", VariableDefinition {
-				name: Cow::Borrowed("a"),
-				op: VariableOp::Append,
-				value: VariableValue::String(Arc::new(Text(vec![
-					TextUnit::Unquoted(vec![
-						Word::Literal(vec![LiteralPart::String(
-							Cow::Borrowed("b")
-						)]),
-						Word::UnbracedVariable(Cow::Borrowed("0")),
-					])
-				])))
-			})
+			(
+				"\n",
+				VariableDefinition {
+					name: Cow::Borrowed("a"),
+					op: VariableOp::Append,
+					value: VariableValue::String(Arc::new(Text(vec![
+						TextUnit::Unquoted(vec![
+							Word::Literal(vec![LiteralPart::String(
+								Cow::Borrowed("b")
+							)]),
+							Word::UnbracedVariable(Cow::Borrowed("0")),
+						])
+					])))
+				}
+			)
 		);
 	}
 
@@ -1200,7 +1219,7 @@ MESON_AFTER__AMD64=" \
 	#[test]
 	fn test_word() {
 		assert_eq!(
-			word("asdf134 a", &|ch| ch != ' ', &anychar).unwrap(),
+			word("asdf134 a", &|ch| ch != ' ', &mut anychar).unwrap(),
 			(
 				" a",
 				Word::Literal(vec![LiteralPart::String(Cow::Borrowed(
@@ -1209,7 +1228,7 @@ MESON_AFTER__AMD64=" \
 			)
 		);
 		assert_eq!(
-			word("asdf134 a", &|_| true, &anychar).unwrap(),
+			word("asdf134 a", &|_| true, &mut anychar).unwrap(),
 			(
 				"",
 				Word::Literal(vec![LiteralPart::String(Cow::Borrowed(
@@ -1218,7 +1237,7 @@ MESON_AFTER__AMD64=" \
 			)
 		);
 		assert_eq!(
-			word("asdf\\134\\\n a", &|_| true, &anychar).unwrap(),
+			word("asdf\\134\\\n a", &|_| true, &mut anychar).unwrap(),
 			(
 				"",
 				Word::Literal(vec![
@@ -1231,7 +1250,7 @@ MESON_AFTER__AMD64=" \
 			)
 		);
 		assert_eq!(
-			word("asdf\\1\\34\\\n a", &|_| true, &one_of("3")).unwrap(),
+			word("asdf\\1\\34\\\n a", &|_| true, &mut one_of("3")).unwrap(),
 			(
 				"",
 				Word::Literal(vec![
@@ -1245,11 +1264,11 @@ MESON_AFTER__AMD64=" \
 			)
 		);
 		assert_eq!(
-			word("$123 a", &|ch| ch != ' ', &anychar).unwrap(),
+			word("$123 a", &|ch| ch != ' ', &mut anychar).unwrap(),
 			(" a", Word::UnbracedVariable(Cow::Borrowed("123")))
 		);
 		assert_eq!(
-			word("${abc} a", &|ch| ch != ' ', &anychar).unwrap(),
+			word("${abc} a", &|ch| ch != ' ', &mut anychar).unwrap(),
 			(
 				" a",
 				Word::BracedVariable(BracedExpansion {
@@ -1259,7 +1278,7 @@ MESON_AFTER__AMD64=" \
 			)
 		);
 		assert_eq!(
-			word("${#abc} a", &|ch| ch != ' ', &anychar).unwrap(),
+			word("${#abc} a", &|ch| ch != ' ', &mut anychar).unwrap(),
 			(
 				" a",
 				Word::BracedVariable(BracedExpansion {
@@ -1268,10 +1287,10 @@ MESON_AFTER__AMD64=" \
 				})
 			)
 		);
-		word("${#abc:1} a", &|ch| ch != ' ', &anychar).unwrap_err();
-		word("", &|ch| ch != ' ', &anychar).unwrap_err();
+		word("${#abc:1} a", &|ch| ch != ' ', &mut anychar).unwrap_err();
+		word("", &|ch| ch != ' ', &mut anychar).unwrap_err();
 		assert_eq!(
-			word("${abc:1:2} a", &|ch| ch != ' ', &anychar).unwrap(),
+			word("${abc:1:2} a", &|ch| ch != ' ', &mut anychar).unwrap(),
 			(
 				" a",
 				Word::BracedVariable(BracedExpansion {
@@ -1284,7 +1303,7 @@ MESON_AFTER__AMD64=" \
 			)
 		);
 		assert_eq!(
-			word("${abc#test?} a", &|ch| ch != ' ', &anychar).unwrap(),
+			word("${abc#test?} a", &|ch| ch != ' ', &mut anychar).unwrap(),
 			(
 				" a",
 				Word::BracedVariable(BracedExpansion {
@@ -1299,7 +1318,7 @@ MESON_AFTER__AMD64=" \
 			)
 		);
 		assert_eq!(
-			word("$(123 ) a", &|ch| ch != ' ', &anychar).unwrap(),
+			word("$(123 ) a", &|ch| ch != ' ', &mut anychar).unwrap(),
 			(
 				" a",
 				Word::Subcommand(vec![
@@ -1317,27 +1336,27 @@ MESON_AFTER__AMD64=" \
 	#[test]
 	fn test_literal_part() {
 		assert_eq!(
-			literal_part("abc a", &|ch| ch != ' ', &anychar).unwrap(),
+			literal_part("abc a", &|ch| ch != ' ', &mut anychar).unwrap(),
 			(" a", LiteralPart::String(Cow::Borrowed("abc")))
 		);
 		assert_eq!(
-			literal_part("abc a", &|_| true, &anychar).unwrap(),
+			literal_part("abc a", &|_| true, &mut anychar).unwrap(),
 			("", LiteralPart::String(Cow::Borrowed("abc a")))
 		);
 		assert_eq!(
-			literal_part("\\na a", &|ch| ch != ' ', &anychar).unwrap(),
+			literal_part("\\na a", &|ch| ch != ' ', &mut anychar).unwrap(),
 			("a a", LiteralPart::Escaped('n'))
 		);
 		assert_eq!(
-			literal_part("\\na a", &|ch| ch != ' ', &one_of("1")).unwrap(),
+			literal_part("\\na a", &|ch| ch != ' ', &mut one_of("1")).unwrap(),
 			("a a", LiteralPart::String(Cow::Borrowed("\\n")))
 		);
 		assert_eq!(
-			literal_part("\\\na a", &|ch| ch != ' ', &anychar).unwrap(),
+			literal_part("\\\na a", &|ch| ch != ' ', &mut anychar).unwrap(),
 			("a a", LiteralPart::LineContinuation)
 		);
 		assert_eq!(
-			literal_part("安安本来是只兔子\n a", &|ch| ch != ' ', &anychar)
+			literal_part("安安本来是只兔子\n a", &|ch| ch != ' ', &mut anychar)
 				.unwrap(),
 			(
 				" a",
@@ -1350,27 +1369,36 @@ MESON_AFTER__AMD64=" \
 	fn test_braced_expansion() {
 		assert_eq!(
 			braced_expansion("asdf134").unwrap(),
-			("", BracedExpansion {
-				name: Cow::Borrowed("asdf134"),
-				modifier: None
-			})
+			(
+				"",
+				BracedExpansion {
+					name: Cow::Borrowed("asdf134"),
+					modifier: None
+				}
+			)
 		);
 		assert_eq!(
 			braced_expansion("asdf:10").unwrap(),
-			("", BracedExpansion {
-				name: Cow::Borrowed("asdf"),
-				modifier: Some(ExpansionModifier::Substring {
-					offset: Cow::Borrowed("10"),
-					length: None
-				})
-			})
+			(
+				"",
+				BracedExpansion {
+					name: Cow::Borrowed("asdf"),
+					modifier: Some(ExpansionModifier::Substring {
+						offset: Cow::Borrowed("10"),
+						length: None
+					})
+				}
+			)
 		);
 		assert_eq!(
 			braced_expansion("#1").unwrap(),
-			("", BracedExpansion {
-				name: Cow::Borrowed("1"),
-				modifier: Some(ExpansionModifier::Length)
-			})
+			(
+				"",
+				BracedExpansion {
+					name: Cow::Borrowed("1"),
+					modifier: Some(ExpansionModifier::Length)
+				}
+			)
 		);
 	}
 
@@ -1378,24 +1406,33 @@ MESON_AFTER__AMD64=" \
 	fn test_expansion_modifier() {
 		assert_eq!(
 			expansion_modifier(":10").unwrap(),
-			("", ExpansionModifier::Substring {
-				offset: Cow::Borrowed("10"),
-				length: None
-			})
+			(
+				"",
+				ExpansionModifier::Substring {
+					offset: Cow::Borrowed("10"),
+					length: None
+				}
+			)
 		);
 		assert_eq!(
 			expansion_modifier(":10:1").unwrap(),
-			("", ExpansionModifier::Substring {
-				offset: Cow::Borrowed("10"),
-				length: Some(Cow::Borrowed("1"))
-			})
+			(
+				"",
+				ExpansionModifier::Substring {
+					offset: Cow::Borrowed("10"),
+					length: Some(Cow::Borrowed("1"))
+				}
+			)
 		);
 		assert_eq!(
 			expansion_modifier(": -10:-1").unwrap(),
-			("", ExpansionModifier::Substring {
-				offset: Cow::Borrowed(" -10"),
-				length: Some(Cow::Borrowed("-1"))
-			})
+			(
+				"",
+				ExpansionModifier::Substring {
+					offset: Cow::Borrowed(" -10"),
+					length: Some(Cow::Borrowed("-1"))
+				}
+			)
 		);
 		expansion_modifier(":").unwrap_err();
 		expansion_modifier("1").unwrap_err();
@@ -1449,91 +1486,115 @@ MESON_AFTER__AMD64=" \
 		);
 		assert_eq!(
 			expansion_modifier("/a*/$b}").unwrap(),
-			("}", ExpansionModifier::ReplaceOnce {
-				pattern: Arc::new(BashPattern(vec![
-					GlobPart::String(Cow::Borrowed("a")),
-					GlobPart::AnyString
-				])),
-				string: Some(Arc::new(Text(vec![TextUnit::Unquoted(vec![
-					Word::UnbracedVariable(Cow::Borrowed("b"))
-				])])))
-			})
+			(
+				"}",
+				ExpansionModifier::ReplaceOnce {
+					pattern: Arc::new(BashPattern(vec![
+						GlobPart::String(Cow::Borrowed("a")),
+						GlobPart::AnyString
+					])),
+					string: Some(Arc::new(Text(vec![TextUnit::Unquoted(
+						vec![Word::UnbracedVariable(Cow::Borrowed("b"))]
+					)])))
+				}
+			)
 		);
 		assert_eq!(
 			expansion_modifier("/a*}").unwrap(),
-			("}", ExpansionModifier::ReplaceOnce {
-				pattern: Arc::new(BashPattern(vec![
-					GlobPart::String(Cow::Borrowed("a")),
-					GlobPart::AnyString
-				])),
-				string: None
-			})
+			(
+				"}",
+				ExpansionModifier::ReplaceOnce {
+					pattern: Arc::new(BashPattern(vec![
+						GlobPart::String(Cow::Borrowed("a")),
+						GlobPart::AnyString
+					])),
+					string: None
+				}
+			)
 		);
 		assert_eq!(
 			expansion_modifier("//a*/$b}").unwrap(),
-			("}", ExpansionModifier::ReplaceAll {
-				pattern: Arc::new(BashPattern(vec![
-					GlobPart::String(Cow::Borrowed("a")),
-					GlobPart::AnyString
-				])),
-				string: Some(Arc::new(Text(vec![TextUnit::Unquoted(vec![
-					Word::UnbracedVariable(Cow::Borrowed("b"))
-				])])))
-			})
+			(
+				"}",
+				ExpansionModifier::ReplaceAll {
+					pattern: Arc::new(BashPattern(vec![
+						GlobPart::String(Cow::Borrowed("a")),
+						GlobPart::AnyString
+					])),
+					string: Some(Arc::new(Text(vec![TextUnit::Unquoted(
+						vec![Word::UnbracedVariable(Cow::Borrowed("b"))]
+					)])))
+				}
+			)
 		);
 		assert_eq!(
 			expansion_modifier("//a*}").unwrap(),
-			("}", ExpansionModifier::ReplaceAll {
-				pattern: Arc::new(BashPattern(vec![
-					GlobPart::String(Cow::Borrowed("a")),
-					GlobPart::AnyString
-				])),
-				string: None
-			})
+			(
+				"}",
+				ExpansionModifier::ReplaceAll {
+					pattern: Arc::new(BashPattern(vec![
+						GlobPart::String(Cow::Borrowed("a")),
+						GlobPart::AnyString
+					])),
+					string: None
+				}
+			)
 		);
 		assert_eq!(
 			expansion_modifier("/#a*/$b}").unwrap(),
-			("}", ExpansionModifier::ReplacePrefix {
-				pattern: Arc::new(BashPattern(vec![
-					GlobPart::String(Cow::Borrowed("a")),
-					GlobPart::AnyString
-				])),
-				string: Some(Arc::new(Text(vec![TextUnit::Unquoted(vec![
-					Word::UnbracedVariable(Cow::Borrowed("b"))
-				])])))
-			})
+			(
+				"}",
+				ExpansionModifier::ReplacePrefix {
+					pattern: Arc::new(BashPattern(vec![
+						GlobPart::String(Cow::Borrowed("a")),
+						GlobPart::AnyString
+					])),
+					string: Some(Arc::new(Text(vec![TextUnit::Unquoted(
+						vec![Word::UnbracedVariable(Cow::Borrowed("b"))]
+					)])))
+				}
+			)
 		);
 		assert_eq!(
 			expansion_modifier("/#a*}").unwrap(),
-			("}", ExpansionModifier::ReplacePrefix {
-				pattern: Arc::new(BashPattern(vec![
-					GlobPart::String(Cow::Borrowed("a")),
-					GlobPart::AnyString
-				])),
-				string: None
-			})
+			(
+				"}",
+				ExpansionModifier::ReplacePrefix {
+					pattern: Arc::new(BashPattern(vec![
+						GlobPart::String(Cow::Borrowed("a")),
+						GlobPart::AnyString
+					])),
+					string: None
+				}
+			)
 		);
 		assert_eq!(
 			expansion_modifier("/%a*/$b}").unwrap(),
-			("}", ExpansionModifier::ReplaceSuffix {
-				pattern: Arc::new(BashPattern(vec![
-					GlobPart::String(Cow::Borrowed("a")),
-					GlobPart::AnyString
-				])),
-				string: Some(Arc::new(Text(vec![TextUnit::Unquoted(vec![
-					Word::UnbracedVariable(Cow::Borrowed("b"))
-				])])))
-			})
+			(
+				"}",
+				ExpansionModifier::ReplaceSuffix {
+					pattern: Arc::new(BashPattern(vec![
+						GlobPart::String(Cow::Borrowed("a")),
+						GlobPart::AnyString
+					])),
+					string: Some(Arc::new(Text(vec![TextUnit::Unquoted(
+						vec![Word::UnbracedVariable(Cow::Borrowed("b"))]
+					)])))
+				}
+			)
 		);
 		assert_eq!(
 			expansion_modifier("/%a*}").unwrap(),
-			("}", ExpansionModifier::ReplaceSuffix {
-				pattern: Arc::new(BashPattern(vec![
-					GlobPart::String(Cow::Borrowed("a")),
-					GlobPart::AnyString
-				])),
-				string: None
-			})
+			(
+				"}",
+				ExpansionModifier::ReplaceSuffix {
+					pattern: Arc::new(BashPattern(vec![
+						GlobPart::String(Cow::Borrowed("a")),
+						GlobPart::AnyString
+					])),
+					string: None
+				}
+			)
 		);
 		assert_eq!(
 			expansion_modifier("^a*}").unwrap(),
@@ -1647,24 +1708,33 @@ MESON_AFTER__AMD64=" \
 	fn test_substring_expansion_modifier() {
 		assert_eq!(
 			substring_expansion_modifier(":10").unwrap(),
-			("", ExpansionModifier::Substring {
-				offset: Cow::Borrowed("10"),
-				length: None
-			})
+			(
+				"",
+				ExpansionModifier::Substring {
+					offset: Cow::Borrowed("10"),
+					length: None
+				}
+			)
 		);
 		assert_eq!(
 			substring_expansion_modifier(":10:1").unwrap(),
-			("", ExpansionModifier::Substring {
-				offset: Cow::Borrowed("10"),
-				length: Some(Cow::Borrowed("1"))
-			})
+			(
+				"",
+				ExpansionModifier::Substring {
+					offset: Cow::Borrowed("10"),
+					length: Some(Cow::Borrowed("1"))
+				}
+			)
 		);
 		assert_eq!(
 			substring_expansion_modifier(": -10:1").unwrap(),
-			("", ExpansionModifier::Substring {
-				offset: Cow::Borrowed(" -10"),
-				length: Some(Cow::Borrowed("1"))
-			})
+			(
+				"",
+				ExpansionModifier::Substring {
+					offset: Cow::Borrowed(" -10"),
+					length: Some(Cow::Borrowed("1"))
+				}
+			)
 		);
 		substring_expansion_modifier(":").unwrap_err();
 		substring_expansion_modifier("1").unwrap_err();
