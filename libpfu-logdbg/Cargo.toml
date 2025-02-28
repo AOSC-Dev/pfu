@@ -12,7 +12,7 @@ repository.workspace = true
 anyhow = "1.0.95"
 async-trait = "0.1.83"
 libabbs = { version = "0.1.4", path = "../libabbs" }
-libpfu = { version = "0.1.0", path = "../libpfu" }
+libpfu = { version = "0.1.1", path = "../libpfu" }
 log = "0.4.25"
 opendal = "0.52.0"
 reqwest = { version = "0.12.9", default-features = false }
