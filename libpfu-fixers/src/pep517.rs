@@ -103,11 +103,9 @@ impl Linter for Pep517Linter {
 					}
 				})
 				.map(|(is_build, dep)| {
-					// remove version specifier
-					for op in ['<', '>', '='] {
-						if let Some((dep, _)) = dep.split_once(op) {
-							return (is_build, dep.to_string());
-						}
+					// remove version specifier and platform specifier
+					if let Some((dep, _)) = dep.split_once(' ') {
+						return (is_build, dep.to_string());
 					}
 					(is_build, dep)
 				})
