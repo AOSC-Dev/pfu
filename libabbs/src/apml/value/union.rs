@@ -4,11 +4,12 @@ use std::{collections::HashMap, sync::Arc};
 
 use kstring::KString;
 use nom::{
+	Parser,
 	branch::alt,
 	bytes::complete::{tag, take, take_while, take_while1},
 	combinator::{not, opt, recognize},
 	multi::{many0, separated_list1},
-	sequence::{pair, preceded, separated_pair, tuple},
+	sequence::{pair, preceded, separated_pair},
 };
 
 use crate::apml::{lst, parser::ParseError};
@@ -61,7 +62,7 @@ impl TryFrom<&str> for Union {
 
 	fn try_from(value: &str) -> Result<Self, Self::Error> {
 		let src = value.trim();
-		let (i, (tag, properties, argument)) = tuple((
+		let (i, (tag, properties, argument)) = (
 			take_while1(|ch: char| ch.is_ascii_alphanumeric()),
 			opt(preceded(
 				tag("::"),
@@ -87,7 +88,8 @@ impl TryFrom<&str> for Union {
 				),
 			)),
 			opt(preceded(tag("::"), take_while1(|ch: char| ch.is_ascii()))),
-		))(src)?;
+		)
+			.parse(src)?;
 		if !i.is_empty() {
 			return Err(ParseError::UnexpectedSource {
 				pos: nom::Offset::offset(src, i) + 1,
@@ -142,9 +144,10 @@ mod test {
 		assert_eq!(union.properties.get("b").unwrap(), "c");
 		assert_eq!(union.properties.get("c").unwrap(), "d");
 		assert_eq!(union.argument.unwrap(), "https://example.org");
-		let union =
-			Union::try_from("a::     b=https://a.com/b;\n   c=d::https://example.org")
-				.unwrap();
+		let union = Union::try_from(
+			"a::     b=https://a.com/b;\n   c=d::https://example.org",
+		)
+		.unwrap();
 		assert_eq!(union.tag, "a");
 		assert_eq!(union.properties.get("b").unwrap(), "https://a.com/b");
 		assert_eq!(union.properties.get("c").unwrap(), "d");

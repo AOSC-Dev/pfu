@@ -9,7 +9,7 @@ use nom::{
 	character::complete::{anychar, char, newline, one_of},
 	combinator::{map, opt, recognize, value},
 	multi::{many0, many1},
-	sequence::{delimited, pair, preceded, tuple},
+	sequence::{delimited, pair, preceded},
 };
 use thiserror::Error;
 
@@ -66,7 +66,7 @@ fn comment_token(i: &str) -> IResult<&str, Token> {
 
 #[inline]
 fn variable_def(i: &str) -> IResult<&str, VariableDefinition> {
-	tuple((variable_name, variable_op, variable_value))
+	(variable_name, variable_op, variable_value)
 		.map(|(name, op, value)| VariableDefinition {
 			name: Cow::Borrowed(name),
 			op,
