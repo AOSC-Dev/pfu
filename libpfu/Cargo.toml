@@ -13,7 +13,7 @@ anyhow = "1.0.95"
 async-trait = "0.1.83"
 futures = "0.3.31"
 kstring = "2.0.2"
-libabbs = { version = "0.1.4", path = "../libabbs" }
+libabbs = { version = "0.1.5", path = "../libabbs" }
 libpfu-source = { version = "0.2.1", path = "../libpfu-source" }
 log = "0.4.25"
 opendal = "0.52.0"

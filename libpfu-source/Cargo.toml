@@ -14,7 +14,7 @@ bytes = "1.9.0"
 bzip2 = { version = "0.5.0", features = ["libbz2-rs-sys"] }
 flate2 = "1.0.35"
 futures = "0.3.31"
-libabbs = { version = "0.1.4", path = "../libabbs" }
+libabbs = { version = "0.1.5", path = "../libabbs" }
 log = "0.4.25"
 opendal = { version = "0.52.0", features = ["services-github"] }
 regex = "1.11.1"
