@@ -47,6 +47,24 @@ impl StringArray {
 		lst::Text(vec![lst::TextUnit::DoubleQuote(words)])
 	}
 
+	/// Formats the expanded string array into a LST text.
+	pub fn print_expanded(&self) -> lst::Text<'static> {
+		let mut words = Vec::new();
+		let mut iter = self.0.iter();
+		if let Some(value) = iter.next() {
+			words.push(lst::Word::Literal(lst::LiteralPart::escape(value)));
+		}
+		for value in iter {
+			words.push(lst::Word::Literal(vec![
+				lst::LiteralPart::String(" ".into()),
+				lst::LiteralPart::LineContinuation,
+				lst::LiteralPart::String("\t".into()),
+			]));
+			words.push(lst::Word::Literal(lst::LiteralPart::escape(value)));
+		}
+		lst::Text(vec![lst::TextUnit::DoubleQuote(words)])
+	}
+
 	/// Unwraps the backing vec.
 	pub fn unwrap(self) -> Vec<String> {
 		self.0
@@ -293,12 +311,20 @@ mod test {
 		let array = StringArray::from(long_str);
 		assert_eq!(array.len(), 1);
 		assert_eq!(array.print().to_string(), format!("\"{long_str}\""));
+		assert_eq!(
+			array.print_expanded().to_string(),
+			format!("\"{long_str}\"")
+		);
 		let array =
 			StringArray::from(format!("{long_str} {long_str} 1 {long_str}"));
 		assert_eq!(array.len(), 4);
 		assert_eq!(
 			array.print().to_string(),
 			format!("\"{long_str} \\\n\t{long_str} 1 \\\n\t{long_str}\"")
+		);
+		assert_eq!(
+			array.print_expanded().to_string(),
+			format!("\"{long_str} \\\n\t{long_str} \\\n\t1 \\\n\t{long_str}\"")
 		);
 	}
 
