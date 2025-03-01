@@ -31,8 +31,8 @@ impl Union {
 		}
 	}
 
-	/// Formats the union into a LST text.
-	pub fn print(&self) -> lst::Text<'static> {
+	/// Formats the union into a string.
+	pub fn print(&self) -> String {
 		let mut value = String::from(self.tag.as_str());
 		let mut entries = self.properties.iter().collect::<Vec<_>>();
 		if !entries.is_empty() {
@@ -51,8 +51,13 @@ impl Union {
 			value.push_str("::");
 			value.push_str(argument);
 		}
+		value
+	}
+
+	/// Formats the union into a LST text.
+	pub fn print_lst(&self) -> lst::Text<'static> {
 		lst::Text(vec![lst::TextUnit::DoubleQuote(vec![lst::Word::Literal(
-			lst::LiteralPart::escape(value),
+			lst::LiteralPart::escape(self.print()),
 		)])])
 	}
 }
@@ -111,7 +116,7 @@ impl TryFrom<&str> for Union {
 
 impl From<&Union> for lst::VariableValue<'_> {
 	fn from(value: &Union) -> Self {
-		Self::String(Arc::new(value.print()))
+		Self::String(Arc::new(value.print_lst()))
 	}
 }
 
@@ -124,17 +129,21 @@ mod test {
 	#[test]
 	fn test_union() {
 		let mut union = Union::new("test");
-		assert_eq!(union.print().to_string(), "\"test\"");
+		assert_eq!(union.print(), "test");
+		assert_eq!(union.print_lst().to_string(), "\"test\"");
 		assert_eq!(lst::VariableValue::from(&union).to_string(), "\"test\"");
 		union.argument = Some("test".to_string());
-		assert_eq!(union.print().to_string(), "\"test::test\"");
+		assert_eq!(union.print(), "test::test");
+		assert_eq!(union.print_lst().to_string(), "\"test::test\"");
 		union.properties.insert("test".into(), "test".to_string());
-		assert_eq!(union.print().to_string(), "\"test::test=test::test\"");
+		assert_eq!(union.print(), "test::test=test::test");
+		assert_eq!(union.print_lst().to_string(), "\"test::test=test::test\"");
 		union.properties.insert("test1".into(), "test".to_string());
 		assert_eq!(
-			union.print().to_string(),
+			union.print_lst().to_string(),
 			"\"test::test=test;test1=test::test\""
 		);
+		assert_eq!(union.print(), "test::test=test;test1=test::test");
 	}
 
 	#[test]
@@ -176,7 +185,7 @@ mod test {
 		assert_eq!(union.argument.unwrap(), "https://example.org");
 		let union = Union::try_from("a::b=c::https://example.org").unwrap();
 		assert_eq!(
-			union.print().to_string(),
+			union.print_lst().to_string(),
 			"\"a::b=c::https://example.org\""
 		);
 	}
