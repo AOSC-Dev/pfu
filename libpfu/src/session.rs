@@ -3,7 +3,7 @@
 //! To apply a lint or fix to a package, callers must prepare a [Context],
 //! providing enough information to fixers.
 
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 use anyhow::{Result, bail};
 use futures::executor::block_on;
@@ -29,8 +29,10 @@ pub struct Session {
 	/// Sub-packages
 	pub subpackages: Vec<SubpackageSession>,
 
-	/// Lazily initialized source
+	/// Lazily initialized source FS
 	source_storage: tokio::sync::RwLock<Option<Arc<opendal::Operator>>>,
+	/// Lazily initialized HTTP client
+	http_client: OnceLock<reqwest::Client>,
 	/// Receiver for lint messages.
 	pub(crate) outbox: Mutex<Vec<LintMessage>>,
 }
@@ -56,6 +58,7 @@ impl Session {
 			spec: RwLock::new(spec),
 			subpackages,
 			source_storage: tokio::sync::RwLock::default(),
+			http_client: OnceLock::default(),
 			outbox: Mutex::new(Vec::new()),
 		})
 	}
@@ -88,6 +91,26 @@ impl Session {
 		let mut result = Vec::new();
 		result.append(&mut *self.outbox.lock());
 		result
+	}
+
+	pub fn http_client(&self) -> Result<reqwest::Client> {
+		if self.offline {
+			// FIXME: improve offline mode handling
+			bail!("offline mode")
+		}
+		// TODO: use OnceLock::get_or_try_init after its stablization
+		let client = self.http_client.get_or_init(|| {
+			reqwest::ClientBuilder::new()
+				.connect_timeout(std::time::Duration::from_secs(10))
+				.read_timeout(std::time::Duration::from_secs(10))
+				.user_agent(format!(
+					"libpfu/{} (https://github.com/AOSC-Dev/pfu)",
+					env!("CARGO_PKG_VERSION")
+				))
+				.build()
+				.expect("HTTP client initialization failed")
+		});
+		Ok(client.clone())
 	}
 }
 

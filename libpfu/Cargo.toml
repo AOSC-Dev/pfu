@@ -19,4 +19,5 @@ log = "0.4.25"
 opendal = "0.52.0"
 ouroboros = "0.18.5"
 parking_lot = "0.12.3"
+reqwest = "0.12.12"
 tokio = { version = "1.43.0", features = ["sync"] }
