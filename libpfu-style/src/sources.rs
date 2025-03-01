@@ -47,6 +47,13 @@ declare_lint! {
 	"replace insecure http:// links with https://"
 }
 
+declare_lint! {
+	pub HTTPS_UNSUPPORTED_SRC_LINT,
+	"https-unsupported-src",
+	Info,
+	"source server supports http:// only, which is insecure"
+}
+
 const REGEX_TBL: &str = "(tarball|tbl)::";
 const REGEX_VERSION_TAR: &str = r##"(?P<version>\$VER|[a-zA-Z0-9\.]*\$\{[^}]+\}|[^\.]+)\.tar(\.gz|\.xz|\.bz2|\.bz|\.zstd|\.zst|)"##;
 
@@ -89,22 +96,6 @@ impl Linter for SrcsLinter {
 			let mut srcs = StringArray::from(srcs?);
 
 			for (idx, src) in srcs.iter_mut().enumerate() {
-				if src.contains("http://") {
-					apml.with_upgraded(|apml| {
-						LintMessage::new(INSECURE_SRC_URL_LINT)
-							.note(format!("source {} should use https://", idx))
-							.snippet(Snippet::new_variable(sess, apml, "SRCS"))
-							.emit(sess);
-					});
-					if !sess.dry {
-						apml.with_upgraded(|apml| {
-							apml.with_text(|text| {
-								text.replace("http://", "https://")
-							})
-						})?;
-					}
-				}
-
 				let un = if src.starts_with("https://")
 					|| src.starts_with("http://")
 				{
@@ -112,6 +103,69 @@ impl Linter for SrcsLinter {
 				} else {
 					Union::try_from(src.as_str())?
 				};
+
+				if let Some(url) = &un.argument {
+					if let Some(domain_path) = url.strip_prefix("http://") {
+						let mut https_valid = true;
+
+						if !sess.offline {
+							let https_url = url.replace("http://", "https://");
+							debug!("Checking HTTPS URL: {}", https_url);
+							let client = sess.http_client()?;
+							if let Ok(status) = client
+								.head(https_url)
+								.send()
+								.await
+								.map(|resp| resp.status())
+							{
+								https_valid = status.is_success()
+									|| status.is_redirection();
+							} else {
+								https_valid = false;
+							}
+						}
+
+						if https_valid {
+							apml.with_upgraded(|apml| {
+								LintMessage::new(INSECURE_SRC_URL_LINT)
+									.note(format!(
+										"source {} should use https://",
+										idx
+									))
+									.snippet(Snippet::new_variable(
+										sess, apml, "SRCS",
+									))
+									.emit(sess);
+								if !sess.dry {
+									apml.with_text(|text| {
+										let domain = domain_path
+											.split_once('/')
+											.unzip()
+											.0
+											.unwrap_or(domain_path);
+										text.replace(
+											&format!("http://{}", domain),
+											&format!("https://{}", domain),
+										)
+									})?;
+								}
+								Ok::<(), anyhow::Error>(())
+							})?;
+						} else {
+							apml.with_upgraded(|apml| {
+								LintMessage::new(HTTPS_UNSUPPORTED_SRC_LINT)
+									.note(format!(
+										"source {} does not support https://",
+										idx
+									))
+									.snippet(Snippet::new_variable(
+										sess, apml, "SRCS",
+									))
+									.emit(sess);
+							});
+						}
+					}
+				}
 
 				match un.tag.to_ascii_lowercase().as_str() {
 					"tarball" | "tbl" => {
