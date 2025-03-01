@@ -337,16 +337,18 @@ mod test {
 		assert_eq!(VariableValue::default().as_string(), "");
 		assert_eq!(VariableValue::String("test".into()).as_string(), "test");
 		assert_eq!(VariableValue::String("test".into()).into_string(), "test");
-		assert_eq!(VariableValue::String("test".into()).as_array(), vec![
-			"test".to_string()
-		]);
+		assert_eq!(
+			VariableValue::String("test".into()).as_array(),
+			vec!["test".to_string()]
+		);
 		assert_eq!(
 			VariableValue::String("".into()).as_array(),
 			Vec::<String>::new()
 		);
-		assert_eq!(VariableValue::String("test".into()).into_array(), vec![
-			"test".to_string()
-		]);
+		assert_eq!(
+			VariableValue::String("test".into()).into_array(),
+			vec!["test".to_string()]
+		);
 		assert_eq!(
 			VariableValue::String("".into()).into_array(),
 			Vec::<String>::new()
@@ -374,12 +376,15 @@ mod test {
 		))
 		.into_array();
 		assert_eq!(array.len(), 4);
-		assert_eq!(array, vec![
-			long_str.to_string(),
-			long_str.to_string(),
-			"1".to_string(),
-			long_str.to_string()
-		]);
+		assert_eq!(
+			array,
+			vec![
+				long_str.to_string(),
+				long_str.to_string(),
+				"1".to_string(),
+				long_str.to_string()
+			]
+		);
 	}
 
 	#[test]
@@ -393,9 +398,10 @@ mod test {
 			VariableValue::Array(vec!["test".into()]).into_string(),
 			"test"
 		);
-		assert_eq!(VariableValue::Array(vec!["test".into()]).as_array(), vec![
-			"test".to_string()
-		]);
+		assert_eq!(
+			VariableValue::Array(vec!["test".into()]).as_array(),
+			vec!["test".to_string()]
+		);
 		assert_eq!(
 			VariableValue::Array(vec!["test".into()]).into_array(),
 			vec!["test".to_string()]

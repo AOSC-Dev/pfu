@@ -546,15 +546,19 @@ mod test {
 		assert!(LiteralPart::should_escape('\\'));
 		assert!(!LiteralPart::should_escape('a'));
 		assert!(!LiteralPart::should_escape(' '));
-		assert_eq!(LiteralPart::escape("asdf"), vec![LiteralPart::String(
-			"asdf".into()
-		)]);
-		assert_eq!(LiteralPart::escape("asd$$f\ng\\"), vec![
-			LiteralPart::String("asd".into()),
-			LiteralPart::Escaped('$'),
-			LiteralPart::Escaped('$'),
-			LiteralPart::String("f\ng".into()),
-			LiteralPart::Escaped('\\'),
-		]);
+		assert_eq!(
+			LiteralPart::escape("asdf"),
+			vec![LiteralPart::String("asdf".into())]
+		);
+		assert_eq!(
+			LiteralPart::escape("asd$$f\ng\\"),
+			vec![
+				LiteralPart::String("asd".into()),
+				LiteralPart::Escaped('$'),
+				LiteralPart::Escaped('$'),
+				LiteralPart::String("f\ng".into()),
+				LiteralPart::Escaped('\\'),
+			]
+		);
 	}
 }
