@@ -17,7 +17,7 @@ libabbs = { version = "0.1.5", path = "../libabbs" }
 libpfu = { version = "0.1.4", path = "../libpfu" }
 libpfu-fixers = { version = "0.1.2", path = "../libpfu-fixers" }
 libpfu-logdbg = { version = "0.1.1", path = "../libpfu-logdbg" }
-libpfu-style = { version = "0.1.1", path = "../libpfu-style" }
+libpfu-style = { version = "0.1.2", path = "../libpfu-style" }
 log = { version = "0.4.25", features = ["std", "max_level_debug", "release_max_level_info"] }
 rayon = "1.10.0"
 regex = "1.11.1"
