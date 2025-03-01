@@ -1,7 +1,12 @@
 //! libpfu (PackFixerUpper) is a library for linting and fixing AOSC OS
 //! package build script automatically.
 
-use std::{fmt::Debug, hash::Hash, path::PathBuf};
+use std::{
+	fmt::Debug,
+	hash::Hash,
+	ops::{Deref, DerefMut},
+	path::PathBuf,
+};
 
 use anyhow::Result;
 use apml::ApmlFileAccess;
@@ -112,25 +117,21 @@ macro_rules! declare_lint {
     );
 }
 
-pub fn walk_apml(
-	sess: &Session,
-) -> Vec<RwLockUpgradableReadGuard<ApmlFileAccess>> {
-	let mut result = vec![sess.spec.upgradable_read()];
+pub fn walk_apml(sess: &Session) -> Vec<ReadGuardWrapper<ApmlFileAccess>> {
+	let mut result = vec![ReadGuardWrapper(sess.spec.upgradable_read())];
 	for subpkg in &sess.subpackages {
 		for recipe in &subpkg.recipes {
-			result.push(recipe.defines.upgradable_read());
+			result.push(ReadGuardWrapper(recipe.defines.upgradable_read()));
 		}
 	}
 	result
 }
 
-pub fn walk_defines(
-	sess: &Session,
-) -> Vec<RwLockUpgradableReadGuard<ApmlFileAccess>> {
+pub fn walk_defines(sess: &Session) -> Vec<ReadGuardWrapper<ApmlFileAccess>> {
 	let mut result = vec![];
 	for subpkg in &sess.subpackages {
 		for recipe in &subpkg.recipes {
-			result.push(recipe.defines.upgradable_read());
+			result.push(ReadGuardWrapper(recipe.defines.upgradable_read()));
 		}
 	}
 	result
@@ -150,4 +151,25 @@ pub fn walk_build_scripts(sess: &Session) -> Vec<PathBuf> {
 		}
 	}
 	result
+}
+
+/// Wrapper for [RwLockUpgradableReadGuard] to make it [Send].
+/// 
+/// This struct is not a part of stable API.
+#[derive(Debug)]
+pub struct ReadGuardWrapper<'a, T>(RwLockUpgradableReadGuard<'a, T>);
+unsafe impl<'a, T> Send for ReadGuardWrapper<'a, T> {}
+
+impl<'a, T> Deref for ReadGuardWrapper<'a, T> {
+	type Target = RwLockUpgradableReadGuard<'a, T>;
+
+	fn deref(&self) -> &Self::Target {
+		&self.0
+	}
+}
+
+impl<'a, T> DerefMut for ReadGuardWrapper<'a, T> {
+	fn deref_mut(&mut self) -> &mut Self::Target {
+		&mut self.0
+	}
 }
