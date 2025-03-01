@@ -4,13 +4,16 @@ use std::sync::LazyLock;
 
 use anyhow::Result;
 use async_trait::async_trait;
-use libabbs::apml::value::{array::StringArray, union::Union};
+use libabbs::apml::{
+	lst,
+	value::{array::StringArray, union::Union},
+};
 use libpfu::{
 	Linter, Session, declare_lint, declare_linter,
 	message::{LintMessage, Snippet},
 	walk_apml,
 };
-use log::debug;
+use log::{debug, warn};
 use regex::Regex;
 
 declare_linter! {
@@ -164,7 +167,16 @@ impl Linter for SrcsLinter {
 													"git::commit=tags/${version}::https://github.com/${user}/${repo}.git",
 												)
 												.to_string()
-										})
+										})?;
+										let mut chksums = StringArray::from(apml.ctx()?.read("CHKSUMS").into_string());
+										match chksums.get_mut(idx) {
+											Some(chksum) => *chksum = "SKIP".to_string(),
+											None => warn!("failed to replace CHKSUMS entry"),
+										}
+										apml.with_editor(|editor| {
+											editor.replace_var_lst("CHKSUMS", lst::VariableValue::String(chksums.print_expanded().into()));
+										});
+										Ok::<_, anyhow::Error>(())
 									})?;
 								}
 							}
