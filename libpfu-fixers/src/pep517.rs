@@ -110,11 +110,7 @@ impl Linter for Pep517Linter {
 							dep_str = dep;
 						}
 					}
-					if dep_str != dep.as_str() {
-						(is_build, dep.to_string())
-					} else {
-						(is_build, dep)
-					}
+					(is_build, dep_str.to_string())
 				})
 				.map(|(is_build, dep)| {
 					let uniformed_dep =
