@@ -251,7 +251,14 @@ impl Linter for Pep517Linter {
 						match oma_contents::searcher::search(
 							"/var/lib/apt/lists",
 							oma_contents::searcher::Mode::Provides,
-							&format!("/site-packages/{}/", dep),
+							&if dep.contains('-') {
+								format!(
+									"/site-packages/{}/",
+									dep.replace('-', "_")
+								)
+							} else {
+								format!("/site-packages/{}/", dep)
+							},
 							|(pkg, path)| {
 								if path.starts_with("/usr/lib/python") {
 									found = Some(pkg)
