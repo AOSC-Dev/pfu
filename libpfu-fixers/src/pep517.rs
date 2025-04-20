@@ -104,10 +104,17 @@ impl Linter for Pep517Linter {
 				})
 				.map(|(is_build, dep)| {
 					// remove version specifier and platform specifier
-					if let Some((dep, _)) = dep.split_once(' ') {
-						return (is_build, dep.to_string());
+					let mut dep_str = dep.as_str();
+					for ch in [' ', '>', '<', '~', '='] {
+						if let Some((dep, _)) = dep_str.split_once(ch) {
+							dep_str = dep;
+						}
 					}
-					(is_build, dep)
+					if dep_str != dep.as_str() {
+						(is_build, dep.to_string())
+					} else {
+						(is_build, dep)
+					}
 				})
 				.map(|(is_build, dep)| {
 					let uniformed_dep =
