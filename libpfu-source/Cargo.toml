@@ -9,19 +9,19 @@ homepage.workspace = true
 repository.workspace = true
 
 [dependencies]
-anyhow = "1.0.95"
-bytes = "1.9.0"
-bzip2 = { version = "0.5.0", features = ["libbz2-rs-sys"] }
-flate2 = "1.0.35"
+anyhow = "1.0.98"
+bytes = "1.10.1"
+bzip2 = { version = "0.5.2", features = ["libbz2-rs-sys"] }
+flate2 = "1.1.1"
 futures = "0.3.31"
 libabbs = { version = "0.1.6", path = "../libabbs" }
-log = "0.4.25"
-opendal = { version = "0.52.0", features = ["services-github"] }
+log = "0.4.27"
+opendal = { version = "0.53.1", features = ["services-github"] }
 regex = "1.11.1"
-reqwest = { version = "0.12.12", features = ["json"] }
-serde = { version = "1.0.217", features = ["derive"] }
-serde_json = "1.0.137"
-tar = { version = "0.4.43", default-features = false }
-tempfile = "3.15.0"
+reqwest = { version = "0.12.15", features = ["json"] }
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.140"
+tar = { version = "0.4.44", default-features = false }
+tempfile = "3.19.1"
 xz2 = "0.1.7"
-zstd = "0.13.2"
+zstd = "0.13.3"

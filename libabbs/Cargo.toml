@@ -12,7 +12,7 @@ repository.workspace = true
 kstring = "2.0.2"
 nom = { version = "8.0.0", optional = true }
 regex = { version = "1.11.1", optional = true }
-thiserror = "2.0.9"
+thiserror = "2.0.12"
 
 [features]
 default = ["apml", "tree"]

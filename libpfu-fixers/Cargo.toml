@@ -9,14 +9,14 @@ homepage.workspace = true
 repository.workspace = true
 
 [dependencies]
-anyhow = "1.0.95"
-async-trait = "0.1.83"
+anyhow = "1.0.98"
+async-trait = "0.1.88"
 kstring = "2.0.2"
 libabbs = { version = "0.1.6", path = "../libabbs" }
 libpfu = { version = "0.1.4", path = "../libpfu" }
-log = "0.4.25"
-oma-contents = { version = "0.17.0", features = ["aosc"] }
-opendal = "0.52.0"
-reqwest = { version = "0.12.9", default-features = false }
-serde = { version = "1.0.217", features = ["derive"] }
-toml = "0.8.19"
+log = "0.4.27"
+oma-contents = { version = "0.17.1", features = ["aosc"] }
+opendal = "0.53.1"
+reqwest = { version = "0.12.15", default-features = false }
+serde = { version = "1.0.219", features = ["derive"] }
+toml = "0.8.22"
