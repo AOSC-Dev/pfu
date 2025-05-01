@@ -1,4 +1,4 @@
 //! Checks for Python packages
 
-pub mod dependency;
+pub mod depsolver;
 pub mod pep517;

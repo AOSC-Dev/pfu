@@ -10,7 +10,7 @@ use libpfu::{
 };
 use log::debug;
 
-use crate::python::dependency;
+use crate::python::depsolver;
 
 declare_linter! {
 	pub PEP517_LINTER,
@@ -68,7 +68,7 @@ impl Linter for Pep517Linter {
 				sess.package
 			);
 
-			let mut py_deps = dependency::collect_deps(sess).await?;
+			let mut py_deps = depsolver::collect_deps(sess).await?;
 			debug!(
 				"Collected Python dependencies for {:?}: {:?}",
 				sess.package, py_deps
@@ -174,7 +174,7 @@ impl Linter for Pep517Linter {
 				}
 				for dep in &mut py_deps {
 					if let Some(prov_pkg) =
-						dependency::find_system_package(dep, &pkgdep, &builddep)
+						depsolver::find_system_package(dep, &pkgdep, &builddep)
 							.await?
 					{
 						if pkgdep.contains(&prov_pkg)
