@@ -7,7 +7,7 @@ use libpfu::Session;
 use log::{debug, error};
 use serde::Deserialize;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Dependency {
 	pub name: KString,
 	pub build_dep: bool,
@@ -41,7 +41,7 @@ impl Dependency {
 	}
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DependencyOrigin {
 	RequirementsTxt,
 	Pep517Dependencies,
@@ -237,5 +237,105 @@ pub async fn find_system_package(
 			);
 			Ok(None)
 		}
+	}
+}
+
+#[cfg(test)]
+mod test {
+	use super::*;
+
+	#[test]
+	fn test_extract_name_from_req() {
+		assert!(
+			Dependency::extract_name_from_req("a; platform_system=windows")
+				.is_none()
+		);
+		assert_eq!(Dependency::extract_name_from_req("a").unwrap(), "a");
+		assert_eq!(Dependency::extract_name_from_req("a; b").unwrap(), "a");
+		assert_eq!(Dependency::extract_name_from_req("a ; b").unwrap(), "a");
+		assert_eq!(Dependency::extract_name_from_req("a== 1.0").unwrap(), "a");
+		assert_eq!(Dependency::extract_name_from_req("a~= 1.0").unwrap(), "a");
+		assert_eq!(Dependency::extract_name_from_req("a>= 1.0").unwrap(), "a");
+		assert_eq!(Dependency::extract_name_from_req("a< 1.0").unwrap(), "a");
+	}
+
+	#[test]
+	fn test_collect_from_pyproject() {
+		assert_eq!(
+			collect_from_pyproject(
+				r##"
+[build-system]
+requires = ["flit-core"]
+build-backend = "flit_core.buildapi"
+
+[project]
+dependencies = [
+    "packaging>=23.2",
+    "wheels; platform_system=windows",
+]
+"##
+			)
+			.unwrap(),
+			vec![
+				Dependency {
+					name: "packaging".into(),
+					build_dep: false,
+					origin: DependencyOrigin::Pep517Dependencies,
+					raw_req: "packaging>=23.2".into(),
+				},
+				Dependency {
+					name: "flit-core".into(),
+					build_dep: true,
+					origin: DependencyOrigin::Pep517BuildRequires,
+					raw_req: "flit-core".into(),
+				},
+				Dependency {
+					name: "flit_core".into(),
+					build_dep: true,
+					origin: DependencyOrigin::Pep517BuildBackend,
+					raw_req: "flit_core.buildapi".into(),
+				}
+			]
+		);
+	}
+
+	#[test]
+	fn test_collect_from_requirementstxt() {
+		assert_eq!(
+			collect_from_requirementstxt(
+				r##"beautifulsoup4==4.5.1
+decorator==4.0.10
+requests
+pip~=100.0
+"##
+			)
+			.unwrap(),
+			vec![
+				Dependency {
+					name: "beautifulsoup4".into(),
+					build_dep: false,
+					origin: DependencyOrigin::RequirementsTxt,
+					raw_req: "beautifulsoup4==4.5.1".into(),
+				},
+				Dependency {
+					name: "decorator".into(),
+					build_dep: false,
+					origin: DependencyOrigin::RequirementsTxt,
+					raw_req: "decorator==4.0.10".into(),
+				},
+				Dependency {
+					name: "requests".into(),
+					build_dep: false,
+					origin: DependencyOrigin::RequirementsTxt,
+					raw_req: "requests".into(),
+				},
+				Dependency {
+					name: "pip".into(),
+					build_dep: false,
+					origin: DependencyOrigin::RequirementsTxt,
+					raw_req: "pip~=100.0".into(),
+				},
+			]
+		);
 	}
 }
