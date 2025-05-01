@@ -144,27 +144,24 @@ fn collect_from_requirementstxt(req_txt_str: &str) -> Result<Vec<Dependency>> {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename = "kebab-case")]
 struct PyprojectToml {
 	#[serde(default)]
 	project: PyprojectProject,
-	#[serde(default)]
+	#[serde(default, rename = "build-system")]
 	build_system: PyprojectBuildSystem,
 }
 
 #[derive(Debug, Deserialize, Default)]
-#[serde(rename = "kebab-case")]
 struct PyprojectProject {
 	#[serde(default)]
 	dependencies: Vec<String>,
 }
 
 #[derive(Debug, Deserialize, Default)]
-#[serde(rename = "kebab-case")]
 struct PyprojectBuildSystem {
-	#[serde(default)]
+	#[serde(default, rename = "build-backend")]
 	build_backend: Option<String>,
-	#[serde(default)]
+	#[serde(default, rename = "requires")]
 	requires: Vec<String>,
 }
 
