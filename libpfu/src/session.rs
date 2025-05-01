@@ -75,7 +75,6 @@ impl Session {
 	#[allow(clippy::await_holding_lock)]
 	pub async fn source_fs(&self) -> Result<Arc<opendal::Operator>> {
 		if self.offline {
-			// FIXME: improve offline mode handling
 			bail!("offline mode")
 		} else if let Some(result) = self.source_storage.read().await.as_ref() {
 			Ok(result.clone())
@@ -104,7 +103,6 @@ impl Session {
 
 	pub fn http_client(&self) -> Result<reqwest::Client> {
 		if self.offline {
-			// FIXME: improve offline mode handling
 			bail!("offline mode")
 		}
 		// TODO: use OnceLock::get_or_try_init after its stablization
