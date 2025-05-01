@@ -23,6 +23,7 @@ declare_linter! {
 		"unknown-fetch-tag",
 		"prefer-specific-src-handler",
 		"insecure-src-url",
+		"https-unsupported-src",
 	]
 }
 
