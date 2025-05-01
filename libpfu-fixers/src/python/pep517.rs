@@ -1,10 +1,7 @@
 //! PEP-517 checks.
 
-use std::cell::OnceCell;
-
 use anyhow::Result;
 use async_trait::async_trait;
-use itertools::Itertools;
 use libabbs::apml::{ast, lst, value::array::StringArray};
 use libpfu::{
 	Linter, Session, declare_lint, declare_linter,
@@ -12,7 +9,8 @@ use libpfu::{
 	walk_defines,
 };
 use log::{debug, error};
-use serde::Deserialize;
+
+use crate::python::dependency;
 
 declare_linter! {
 	pub PEP517_LINTER,
@@ -64,66 +62,13 @@ declare_lint! {
 #[async_trait]
 impl Linter for Pep517Linter {
 	async fn apply(&self, sess: &Session) -> Result<()> {
-		if let Ok(pyproj_str) =
-			sess.source_fs().await?.read("pyproject.toml").await
-		{
+		if sess.source_fs().await?.exists("pyproject.toml").await? {
 			debug!(
 				"pyproject.toml found, checking PEP-517 lints for {:?}",
 				sess.package
 			);
 
-			let pyproj_str = String::from_utf8(pyproj_str.to_vec())?;
-			let pyproj = toml::from_str::<PyprojectToml>(&pyproj_str)?;
-			debug!(
-				"Loaded pyproject.toml for {:?}: {:?}",
-				sess.package, pyproj
-			);
-			let mut py_deps = vec![];
-			for dep in pyproj.project.dependencies {
-				py_deps.push((false, dep));
-			}
-			for dep in pyproj.build_system.requires {
-				py_deps.push((true, dep));
-			}
-			if let Some(backend) = pyproj.build_system.build_backend {
-				py_deps.push((true, backend));
-			}
-			let mut py_deps = py_deps
-				.into_iter()
-				.filter_map(|(is_build, dep)| {
-					if let Some((dep, cond)) = dep.split_once(';') {
-						let cond = cond.to_ascii_lowercase();
-						if cond.contains("platform_system")
-							&& cond.contains("windows")
-						{
-							return None;
-						}
-						Some((is_build, dep.to_string()))
-					} else {
-						Some((is_build, dep))
-					}
-				})
-				.map(|(is_build, dep)| {
-					// remove version specifier and platform specifier
-					let mut dep_str = dep.as_str();
-					for ch in [' ', '>', '<', '~', '='] {
-						if let Some((dep, _)) = dep_str.split_once(ch) {
-							dep_str = dep;
-						}
-					}
-					(is_build, dep_str.to_string())
-				})
-				.map(|(is_build, dep)| {
-					let uniformed_dep =
-						dep.replace('_', "-").to_ascii_lowercase();
-					(
-						is_build,
-						dep,
-						uniformed_dep,
-						OnceCell::<Option<String>>::new(),
-					)
-				})
-				.collect_vec();
+			let mut py_deps = dependency::collect_deps(sess).await?;
 			debug!(
 				"Collected Python dependencies for {:?}: {:?}",
 				sess.package, py_deps
@@ -222,43 +167,45 @@ impl Linter for Pep517Linter {
 						pkgdep_dirty = true;
 					}
 				}
-				for (is_build, dep, uniformed_dep, prov_pkg) in &mut py_deps {
+				for dep in &mut py_deps {
 					let find_dep = |pkg: &str| {
 						if pkgdep.iter().any(|dep| dep == pkg) {
 							debug!(
 								"{:?}: Matched dependency package in PKGDEP: {} -> {}",
-								apml, dep, pkg
+								apml, dep.name, pkg
 							);
 							return true;
 						}
-						if *is_build && builddep.iter().any(|dep| dep == pkg) {
+						if dep.build_dep
+							&& builddep.iter().any(|dep| dep == pkg)
+						{
 							debug!(
 								"{:?}: Matched dependency package in BUILDDEP: {} -> {}",
-								apml, dep, pkg
+								apml, dep.name, pkg
 							);
 							return true;
 						}
 						false
 					};
-					if find_dep(uniformed_dep) {
+					if find_dep(&dep.guess_aosc_package_name()) {
 						debug!(
 							"{:?}: Matched Python dependency through name-normalization: {}",
-							apml, dep
+							apml, dep.name
 						);
 						continue;
 					}
-					let prov_pkg = prov_pkg.get_or_init(|| {
+					let prov_pkg = {
 						let mut found = None;
 						match oma_contents::searcher::search(
 							"/var/lib/apt/lists",
 							oma_contents::searcher::Mode::Provides,
-							&if dep.contains('-') {
+							&if dep.name.contains('-') {
 								format!(
 									"/site-packages/{}/",
-									dep.replace('-', "_")
+									dep.name.replace('-', "_")
 								)
 							} else {
-								format!("/site-packages/{dep}/")
+								format!("/site-packages/{}/", dep.name)
 							},
 							|(pkg, path)| {
 								if path.starts_with("/usr/lib/python") {
@@ -270,11 +217,11 @@ impl Linter for Pep517Linter {
 								match &found {
 									Some(pkg) => debug!(
 										"Found provider package for Python package: {} -> {}",
-										dep, pkg
+										dep.name, pkg
 									),
 									None => debug!(
 										"Unable to find provider package for Python package: {}",
-										dep
+										dep.name
 									),
 								}
 								found
@@ -282,25 +229,26 @@ impl Linter for Pep517Linter {
 							Err(err) => {
 								error!(
 									"Failed to search provider package for Python package {}: {:?}",
-									dep, err
+									dep.name, err
 								);
 								None
 							}
 						}
-					});
+					};
 					if let Some(prov_pkg) = prov_pkg {
-						if find_dep(prov_pkg) {
+						if find_dep(&prov_pkg) {
 							continue;
 						}
 
 						apml.with_upgraded(|apml| {
-							if !*is_build {
+							if !dep.build_dep {
 								LintMessage::new(PEP517_SUGGEST_DEP_LINT)
 									.snippet(Snippet::new_variable(
 										sess, apml, "PKGDEP",
 									))
 									.note(format!(
-										"package {prov_pkg} provides runtime dependency {dep}"
+										"package {prov_pkg} provides runtime dependency {}",
+										dep.name
 									))
 									.emit(sess);
 								if !sess.dry {
@@ -313,7 +261,8 @@ impl Linter for Pep517Linter {
 										sess, apml, "BUILDDEP",
 									))
 									.note(format!(
-										"package {prov_pkg} provides build dependency {dep}"
+										"package {prov_pkg} provides build dependency {}",
+										dep.name
 									))
 									.emit(sess);
 								if !sess.dry {
@@ -346,29 +295,4 @@ impl Linter for Pep517Linter {
 		}
 		Ok(())
 	}
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename = "kebab-case")]
-struct PyprojectToml {
-	#[serde(default)]
-	project: PyprojectProject,
-	#[serde(default)]
-	build_system: PyprojectBuildSystem,
-}
-
-#[derive(Debug, Deserialize, Default)]
-#[serde(rename = "kebab-case")]
-struct PyprojectProject {
-	#[serde(default)]
-	dependencies: Vec<String>,
-}
-
-#[derive(Debug, Deserialize, Default)]
-#[serde(rename = "kebab-case")]
-struct PyprojectBuildSystem {
-	#[serde(default)]
-	build_backend: Option<String>,
-	#[serde(default)]
-	requires: Vec<String>,
 }

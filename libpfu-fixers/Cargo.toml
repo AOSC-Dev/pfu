@@ -11,7 +11,7 @@ repository.workspace = true
 [dependencies]
 anyhow = "1.0.95"
 async-trait = "0.1.83"
-itertools = "0.14.0"
+kstring = "2.0.2"
 libabbs = { version = "0.1.5", path = "../libabbs" }
 libpfu = { version = "0.1.4", path = "../libpfu" }
 log = "0.4.25"
