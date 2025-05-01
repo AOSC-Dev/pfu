@@ -258,7 +258,7 @@ impl Linter for Pep517Linter {
 									dep.replace('-', "_")
 								)
 							} else {
-								format!("/site-packages/{}/", dep)
+								format!("/site-packages/{dep}/")
 							},
 							|(pkg, path)| {
 								if path.starts_with("/usr/lib/python") {
@@ -300,8 +300,7 @@ impl Linter for Pep517Linter {
 										sess, apml, "PKGDEP",
 									))
 									.note(format!(
-										"package {} provides runtime dependency {}",
-										prov_pkg, dep
+										"package {prov_pkg} provides runtime dependency {dep}"
 									))
 									.emit(sess);
 								if !sess.dry {
@@ -314,8 +313,7 @@ impl Linter for Pep517Linter {
 										sess, apml, "BUILDDEP",
 									))
 									.note(format!(
-										"package {} provides build dependency {}",
-										prov_pkg, dep
+										"package {prov_pkg} provides build dependency {dep}"
 									))
 									.emit(sess);
 								if !sess.dry {
