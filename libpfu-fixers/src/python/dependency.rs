@@ -2,8 +2,9 @@ use std::fmt::Display;
 
 use anyhow::Result;
 use kstring::KString;
+use libabbs::apml::value::array::StringArray;
 use libpfu::Session;
-use log::debug;
+use log::{debug, error};
 use serde::Deserialize;
 
 #[derive(Debug, Clone)]
@@ -15,6 +16,7 @@ pub struct Dependency {
 }
 
 impl Dependency {
+	/// Extracts the package name out from a Python dependency requirement.
 	pub fn extract_name_from_req(req: &str) -> Option<KString> {
 		// exclude windows and OSX-only dependencies
 		if let Some((_, cond)) = req.split_once(';') {
@@ -33,6 +35,7 @@ impl Dependency {
 		Some(KString::from_ref(req))
 	}
 
+	/// Normalizes the package name for AOSC naming style.
 	pub fn guess_aosc_package_name(&self) -> String {
 		self.name.replace('_', "-")
 	}
@@ -76,7 +79,7 @@ pub async fn collect_deps(sess: &Session) -> Result<Vec<Dependency>> {
 	}
 }
 
-pub fn collect_from_pyproject(pyproject_str: &str) -> Result<Vec<Dependency>> {
+fn collect_from_pyproject(pyproject_str: &str) -> Result<Vec<Dependency>> {
 	let pyproject = toml::from_str::<PyprojectToml>(&pyproject_str)?;
 	debug!("Parsed pyproject.toml: {:?}", pyproject);
 
@@ -136,4 +139,77 @@ struct PyprojectBuildSystem {
 	build_backend: Option<String>,
 	#[serde(default)]
 	requires: Vec<String>,
+}
+
+/// Finds the system package which provides a certain Python package.
+pub async fn find_system_package(
+	dep: &Dependency,
+	pkgdep: &StringArray,
+	builddep: &StringArray,
+) -> Result<Option<String>> {
+	let find_dep = |pkg: &str| {
+		if pkgdep.iter().any(|dep| dep == pkg) {
+			debug!(
+				"Matched Python dependency package in PKGDEP: {} -> {}",
+				dep.name, pkg
+			);
+			return true;
+		}
+		if dep.build_dep && builddep.iter().any(|dep| dep == pkg) {
+			debug!(
+				"Matched Python dependency package in BUILDDEP: {} -> {}",
+				dep.name, pkg
+			);
+			return true;
+		}
+		false
+	};
+
+	// Find in current dependencies
+	let aosc_package_name = dep.guess_aosc_package_name();
+	if find_dep(&aosc_package_name) {
+		debug!(
+			"Matched Python dependency through name-normalization: {}",
+			dep.name
+		);
+		return Ok(Some(aosc_package_name));
+	}
+
+	// Find in apt database
+	let mut found = None;
+	match oma_contents::searcher::search(
+		"/var/lib/apt/lists",
+		oma_contents::searcher::Mode::Provides,
+		&if dep.name.contains('-') {
+			format!("/site-packages/{}/", dep.name.replace('-', "_"))
+		} else {
+			format!("/site-packages/{}/", dep.name)
+		},
+		|(pkg, path)| {
+			if path.starts_with("/usr/lib/python") {
+				found = Some(pkg)
+			}
+		},
+	) {
+		Ok(()) => {
+			match &found {
+				Some(pkg) => debug!(
+					"Found system package for Python package: {} -> {}",
+					dep.name, pkg
+				),
+				None => debug!(
+					"No system package was found for Python package: {}",
+					dep.name
+				),
+			}
+			Ok(found)
+		}
+		Err(err) => {
+			error!(
+				"Failed to find system package for Python package {}: {:?}",
+				dep.name, err
+			);
+			Ok(None)
+		}
+	}
 }

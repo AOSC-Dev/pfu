@@ -8,7 +8,7 @@ use libpfu::{
 	message::{LintMessage, Snippet},
 	walk_defines,
 };
-use log::{debug, error};
+use log::debug;
 
 use crate::python::dependency;
 
@@ -168,75 +168,13 @@ impl Linter for Pep517Linter {
 					}
 				}
 				for dep in &mut py_deps {
-					let find_dep = |pkg: &str| {
-						if pkgdep.iter().any(|dep| dep == pkg) {
-							debug!(
-								"{:?}: Matched dependency package in PKGDEP: {} -> {}",
-								apml, dep.name, pkg
-							);
-							return true;
-						}
-						if dep.build_dep
-							&& builddep.iter().any(|dep| dep == pkg)
+					if let Some(prov_pkg) =
+						dependency::find_system_package(dep, &pkgdep, &builddep)
+							.await?
+					{
+						if pkgdep.contains(&prov_pkg)
+							|| (dep.build_dep && builddep.contains(&prov_pkg))
 						{
-							debug!(
-								"{:?}: Matched dependency package in BUILDDEP: {} -> {}",
-								apml, dep.name, pkg
-							);
-							return true;
-						}
-						false
-					};
-					if find_dep(&dep.guess_aosc_package_name()) {
-						debug!(
-							"{:?}: Matched Python dependency through name-normalization: {}",
-							apml, dep.name
-						);
-						continue;
-					}
-					let prov_pkg = {
-						let mut found = None;
-						match oma_contents::searcher::search(
-							"/var/lib/apt/lists",
-							oma_contents::searcher::Mode::Provides,
-							&if dep.name.contains('-') {
-								format!(
-									"/site-packages/{}/",
-									dep.name.replace('-', "_")
-								)
-							} else {
-								format!("/site-packages/{}/", dep.name)
-							},
-							|(pkg, path)| {
-								if path.starts_with("/usr/lib/python") {
-									found = Some(pkg)
-								}
-							},
-						) {
-							Ok(()) => {
-								match &found {
-									Some(pkg) => debug!(
-										"Found provider package for Python package: {} -> {}",
-										dep.name, pkg
-									),
-									None => debug!(
-										"Unable to find provider package for Python package: {}",
-										dep.name
-									),
-								}
-								found
-							}
-							Err(err) => {
-								error!(
-									"Failed to search provider package for Python package {}: {:?}",
-									dep.name, err
-								);
-								None
-							}
-						}
-					};
-					if let Some(prov_pkg) = prov_pkg {
-						if find_dep(&prov_pkg) {
 							continue;
 						}
 
