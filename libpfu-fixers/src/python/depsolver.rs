@@ -86,7 +86,7 @@ pub async fn collect_deps(sess: &Session) -> Result<Vec<Dependency>> {
 }
 
 fn collect_from_pyproject(pyproject_str: &str) -> Result<Vec<Dependency>> {
-	let pyproject = toml::from_str::<PyprojectToml>(&pyproject_str)?;
+	let pyproject = toml::from_str::<PyprojectToml>(pyproject_str)?;
 	debug!("Parsed pyproject.toml: {:?}", pyproject);
 
 	let mut py_deps = vec![];
@@ -131,16 +131,12 @@ fn collect_from_requirementstxt(req_txt_str: &str) -> Result<Vec<Dependency>> {
 		.map(|s| s.trim())
 		.filter(|s| !s.is_empty())
 		.filter_map(|raw_req| {
-			if let Some(name) = Dependency::extract_name_from_req(raw_req) {
-				Some(Dependency {
-					name,
-					build_dep: false,
-					origin: DependencyOrigin::RequirementsTxt,
-					raw_req: raw_req.to_string(),
-				})
-			} else {
-				None
-			}
+			Dependency::extract_name_from_req(raw_req).map(|name| Dependency {
+				name,
+				build_dep: false,
+				origin: DependencyOrigin::RequirementsTxt,
+				raw_req: raw_req.to_string(),
+			})
 		})
 		.collect())
 }

@@ -153,7 +153,7 @@ impl Linter for ArchGroupLinter {
 										"'{target}' is in arch-group '{archgroup}'",
 									))
 									.snippet(Snippet::new_variable(
-										sess, apml, &var_name,
+										sess, apml, var_name,
 									))
 									.emit(sess);
 							}
@@ -165,13 +165,13 @@ impl Linter for ArchGroupLinter {
 							sess.ab4_data
 								.arch_groups
 								.get(group.as_str())
-								.map_or(false, |targets| {
+								.is_some_and(|targets| {
 									targets.contains(target.as_str())
 								})
 						}) {
 						LintMessage::new(REDUNDANT_ARCH_OVERRIDES_LINT)
 							.snippet(Snippet::new_variable(
-								sess, apml, &var_name,
+								sess, apml, var_name,
 							))
 							.emit(sess);
 						if !sess.dry {

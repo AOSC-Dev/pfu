@@ -6,7 +6,9 @@ use libpfu_fixers::{
 	python::{deps::PYTHON_DEPS_LINTER, pep517::PEP517_LINTER},
 };
 use libpfu_style::{
-	archgroup::ARCH_GROUP_LINTER, chkupd::CHKUPDATE_LINTER, empty_line::EMPTY_LINE_LINTER, sources::SRCS_LINTER, spacing::EXTRA_SPACES_LINTER
+	archgroup::ARCH_GROUP_LINTER, chkupd::CHKUPDATE_LINTER,
+	empty_line::EMPTY_LINE_LINTER, sources::SRCS_LINTER,
+	spacing::EXTRA_SPACES_LINTER,
 };
 
 pub type LinterPreset = &'static [&'static LinterMetadata];
