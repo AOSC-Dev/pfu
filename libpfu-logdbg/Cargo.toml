@@ -1,6 +1,6 @@
 [package]
 name = "libpfu-logdbg"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 description = "Build-log analysis based lints for libPFU"
 authors.workspace = true
