@@ -94,6 +94,11 @@ impl Linter for Pep517Linter {
 								})
 							}
 						})
+					} else if abtype != "pep517" {
+						debug!(
+							"Explicit ABTYPE '{abtype}' is not pep517, skipping PEP-517 lints"
+						);
+						continue;
 					}
 				}
 
