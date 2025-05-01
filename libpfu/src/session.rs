@@ -149,7 +149,7 @@ pub struct RecipeSession {
 impl RecipeSession {
 	pub fn new(abbs: &AbbsSubPackage, suffix: KString) -> Result<Self> {
 		let defines =
-			ApmlFileAccess::open(abbs.join(format!("defines{}", suffix)))?;
+			ApmlFileAccess::open(abbs.join(format!("defines{suffix}")))?;
 		Ok(Self {
 			suffix,
 			defines: RwLock::new(defines),
