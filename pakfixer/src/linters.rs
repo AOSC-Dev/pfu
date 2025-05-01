@@ -1,7 +1,9 @@
 //! List of known linters.
 
 use libpfu::LinterMetadata;
-use libpfu_fixers::{fish_shell::FISH_SHELL_LINTER, pep517::PEP517_LINTER};
+use libpfu_fixers::{
+	fish_shell::FISH_SHELL_LINTER, python::pep517::PEP517_LINTER,
+};
 use libpfu_style::{
 	chkupd::CHKUPDATE_LINTER, empty_line::EMPTY_LINE_LINTER,
 	sources::SRCS_LINTER, spacing::EXTRA_SPACES_LINTER,

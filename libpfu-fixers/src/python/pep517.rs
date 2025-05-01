@@ -1,4 +1,4 @@
-//! `CHKUPDATE` checks.
+//! PEP-517 checks.
 
 use std::cell::OnceCell;
 
