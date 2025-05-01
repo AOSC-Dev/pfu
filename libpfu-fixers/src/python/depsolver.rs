@@ -112,7 +112,9 @@ fn collect_from_pyproject(pyproject_str: &str) -> Result<Vec<Dependency>> {
 	}
 	if let Some(backend) = pyproject.build_system.build_backend {
 		py_deps.push(Dependency {
-			name: KString::from_ref(&backend),
+			name: KString::from_ref(
+				backend.split_once('.').map_or(backend.as_str(), |(s, _)| s),
+			),
 			build_dep: true,
 			origin: DependencyOrigin::Pep517BuildBackend,
 			raw_req: backend,
