@@ -142,6 +142,14 @@ async fn main() -> Result<()> {
 			}
 			let mut stdout = std::io::stdout().lock();
 			for message in messages {
+				#[cfg(debug_assertions)]
+				if !linter.metadata().lints.contains(&message.lint.ident) {
+					bail!(
+						"Linter {} emitted a lint message of {} which is not included in its linter metadata",
+						ident,
+						message.lint.ident
+					);
+				}
 				reporter.report(message, &mut stdout)?;
 			}
 		}
