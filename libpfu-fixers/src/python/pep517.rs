@@ -98,7 +98,7 @@ impl Linter for Pep517Linter {
 						apml.with_upgraded(|apml| {
 							apml.with_editor(|apml| {
 								apml.append_var_ast(
-									"NOPYTHON2",
+									"NOPYTHON2".to_string(),
 									&ast::VariableValue::String(
 										ast::Text::from("1"),
 									),

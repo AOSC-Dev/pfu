@@ -138,7 +138,7 @@ impl<'b> ApmlEditor<'_, 'b> {
 	/// Appends a new variable assignment definition.
 	pub fn append_var_ast(
 		&mut self,
-		name: &'b str,
+		name: String,
 		value: &ast::VariableValue<'b>,
 		after: Option<&str>,
 	) {
@@ -295,7 +295,7 @@ mod test {
 		let mut lst = ApmlLst::parse("a=b\nb=c").unwrap();
 		let mut editor = ApmlEditor::wrap(&mut lst);
 		editor.append_var_ast(
-			"c",
+			"c".to_string(),
 			&ast::VariableValue::String("a".into()),
 			None,
 		);
@@ -303,7 +303,7 @@ mod test {
 		let mut lst = ApmlLst::parse("a=b\nb=c").unwrap();
 		let mut editor = ApmlEditor::wrap(&mut lst);
 		editor.append_var_ast(
-			"c",
+			"c".to_string(),
 			&ast::VariableValue::String("a".into()),
 			Some("a"),
 		);
@@ -311,7 +311,7 @@ mod test {
 		let mut lst = ApmlLst::parse("a=b\nb=c").unwrap();
 		let mut editor = ApmlEditor::wrap(&mut lst);
 		editor.append_var_ast(
-			"c",
+			"c".to_string(),
 			&ast::VariableValue::String("a".into()),
 			Some("b"),
 		);
@@ -319,7 +319,7 @@ mod test {
 		let mut lst = ApmlLst::parse("a=b\nb=c").unwrap();
 		let mut editor = ApmlEditor::wrap(&mut lst);
 		editor.append_var_ast(
-			"c",
+			"c".to_string(),
 			&ast::VariableValue::String("a".into()),
 			Some("eee"),
 		);
