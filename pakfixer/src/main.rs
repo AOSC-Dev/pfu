@@ -162,7 +162,7 @@ async fn main() -> Result<()> {
 			for mut apml in walk_apml(&sess) {
 				if apml.is_dirty() {
 					apml.with_upgraded(|apml| apml.save())
-						.with_context(|| format!("saving {:?}", apml))?;
+						.with_context(|| format!("saving {apml:?}"))?;
 				}
 			}
 		} else {

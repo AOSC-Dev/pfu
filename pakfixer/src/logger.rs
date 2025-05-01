@@ -100,10 +100,10 @@ impl LintReporter {
 		for snippet in message.snippets {
 			write!(to, "       {}{}", style("--> ").blue(), snippet.path)?;
 			if let Some(line) = snippet.line {
-				write!(to, ":{}", line)?;
+				write!(to, ":{line}")?;
 			}
 			if let Some(source) = snippet.source {
-				write!(to, ": {}", source)?;
+				write!(to, ": {source}")?;
 			}
 			writeln!(to)?;
 		}
