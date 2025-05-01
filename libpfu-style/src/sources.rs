@@ -80,7 +80,7 @@ static REGEX_GH_TAR_FULL: LazyLock<Regex> = LazyLock::new(|| {
 	let regex = format!(
 		"{}{}{}",
 		REGEX_TBL,
-		r##"http(s|)://github\.com/(?<user>[a-zA-Z_-]+)/(?<repo>[a-zA-Z_-]+)/archive/"##,
+		r##"http(s|)://github\.com/(?<user>[a-zA-Z_-]+)/(?<repo>[a-zA-Z_-]+)/archive/(?:refs/tags/)"##,
 		REGEX_VERSION_TAR
 	);
 	Regex::new(&regex).unwrap()
