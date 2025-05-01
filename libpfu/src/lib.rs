@@ -20,7 +20,7 @@ pub use session::Session;
 
 /// A checker.
 #[async_trait]
-pub trait Linter: 'static + Send + Sync {
+pub trait Linter: 'static + Send + Sync + MetadataProvider {
 	async fn apply(&self, sess: &Session) -> Result<()>;
 }
 
@@ -66,6 +66,10 @@ impl Hash for LinterMetadata {
 	}
 }
 
+pub trait MetadataProvider {
+	fn metadata(&self) -> &'static LinterMetadata;
+}
+
 #[macro_export]
 macro_rules! declare_linter {
     {$(#[$attr:meta])* $vis: vis $NAME: ident, $imp: ident, $lints: expr} => (
@@ -76,6 +80,12 @@ macro_rules! declare_linter {
         };
 
         $(#[$attr])* $vis struct $imp;
+
+		impl $crate::MetadataProvider for $imp {
+			fn metadata(&self) -> &'static $crate::LinterMetadata {
+				return $NAME;
+			}
+		}
     );
 }
 
@@ -154,7 +164,7 @@ pub fn walk_build_scripts(sess: &Session) -> Vec<PathBuf> {
 }
 
 /// Wrapper for [RwLockUpgradableReadGuard] to make it [Send].
-/// 
+///
 /// This struct is not a part of stable API.
 #[derive(Debug)]
 pub struct ReadGuardWrapper<'a, T>(RwLockUpgradableReadGuard<'a, T>);
