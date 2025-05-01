@@ -22,6 +22,7 @@ declare_linter! {
 		"pep517-nopython2",
 		"pep517-python2-dep",
 		"pep517-python3-dep",
+		"pep517-suggested-dep",
 	]
 }
 
