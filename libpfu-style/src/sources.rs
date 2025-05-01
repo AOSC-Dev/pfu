@@ -99,6 +99,7 @@ impl Linter for SrcsLinter {
 			for (idx, src) in srcs.iter_mut().enumerate() {
 				let un = if src.starts_with("https://")
 					|| src.starts_with("http://")
+					|| !src.contains("::")
 				{
 					Union::try_from(format!("tbl::{}", src).as_str())?
 				} else {
