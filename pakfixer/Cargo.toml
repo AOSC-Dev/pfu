@@ -13,7 +13,7 @@ anyhow = "1.0.95"
 clap = { version = "4.5.27", features = ["derive", "env"] }
 console = "0.15.10"
 kstring = "2.0.2"
-libabbs = { version = "0.1.5", path = "../libabbs" }
+libabbs = { version = "0.1.6", path = "../libabbs" }
 libpfu = { version = "0.1.4", path = "../libpfu" }
 libpfu-fixers = { version = "0.1.2", path = "../libpfu-fixers" }
 libpfu-logdbg = { version = "0.1.1", path = "../libpfu-logdbg" }

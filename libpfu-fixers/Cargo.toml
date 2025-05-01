@@ -12,7 +12,7 @@ repository.workspace = true
 anyhow = "1.0.95"
 async-trait = "0.1.83"
 kstring = "2.0.2"
-libabbs = { version = "0.1.5", path = "../libabbs" }
+libabbs = { version = "0.1.6", path = "../libabbs" }
 libpfu = { version = "0.1.4", path = "../libpfu" }
 log = "0.4.25"
 oma-contents = { version = "0.17.0", features = ["aosc"] }
