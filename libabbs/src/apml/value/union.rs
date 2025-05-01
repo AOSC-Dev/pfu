@@ -188,5 +188,11 @@ mod test {
 			union.print_lst().to_string(),
 			"\"a::b=c::https://example.org\""
 		);
+		let union = Union::try_from("a::url=https://example/example.json;pattern=\"latest-runtime\": \"(6\\..+?)\"").unwrap();
+		assert_eq!(union.tag, "a");
+		assert_eq!(
+			union.properties.get("url").unwrap(),
+			"https://example/example.json"
+		);
 	}
 }
