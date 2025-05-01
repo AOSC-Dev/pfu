@@ -26,7 +26,7 @@ struct Args {
 	tree: Option<PathBuf>,
 	/// Package name.
 	#[arg(required_unless_present_any = ["section", "regex", "world"])]
-	name: Option<String>,
+	name: Vec<String>,
 	/// Process all packages in a section.
 	#[arg(short, long)]
 	section: Option<String>,
@@ -69,8 +69,13 @@ async fn main() -> Result<()> {
 
 	info!("PackFixerUpper {}", env!("CARGO_PKG_VERSION"));
 
-	let packages = if let Some(name) = args.name {
-		vec![abbs.find_package(name)?]
+	let packages = if !args.name.is_empty() {
+		let mut packages = Vec::new();
+		// TODO: replace with try_collect
+		for name in args.name {
+			packages.push(abbs.find_package(name)?);
+		}
+		packages
 	} else if let Some(section) = args.section {
 		abbs.section_packages(&section.into())?
 	} else if let Some(regex) = args.regex {
