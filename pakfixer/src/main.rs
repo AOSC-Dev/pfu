@@ -132,8 +132,7 @@ async fn main() -> Result<()> {
 					debug!("{} finished on {:?}", ident, &package);
 				}
 				Err(err) => {
-					error!("{} failed on {:?}: {:#?}", ident, &package, err);
-					continue;
+					error!("{} failed on {:?}: {:?}", ident, &package, err);
 				}
 			};
 			let messages = sess.take_messages();
