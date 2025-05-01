@@ -162,10 +162,13 @@ async fn main() -> Result<()> {
 				}
 			}
 		} else {
-			debug!("Checking APML files sync states for {:?}", &package);
-			for apml in walk_apml(&sess) {
-				if apml.is_dirty() {
-					bail!("APML file is desynced in dry-run session");
+			#[cfg(debug_assertions)]
+			{
+				debug!("Checking APML files sync states for {:?}", &package);
+				for apml in walk_apml(&sess) {
+					if apml.is_dirty() {
+						bail!("APML file is desynced in dry-run session");
+					}
 				}
 			}
 		}
