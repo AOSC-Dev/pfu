@@ -52,7 +52,9 @@ declare_lint! {
 #[async_trait]
 impl Linter for Pep517Linter {
 	async fn apply(&self, sess: &Session) -> Result<()> {
-		if sess.source_fs().await?.exists("pyproject.toml").await? {
+		if !sess.offline
+			&& sess.source_fs().await?.exists("pyproject.toml").await?
+		{
 			debug!(
 				"pyproject.toml found, checking PEP-517 lints for {:?}",
 				sess.package

@@ -30,6 +30,9 @@ declare_lint! {
 #[async_trait]
 impl Linter for PythonDepsLinter {
 	async fn apply(&self, sess: &Session) -> Result<()> {
+		if sess.offline {
+			return Ok(());
+		}
 		let mut py_deps = depsolver::collect_deps(sess).await?;
 		if py_deps.is_empty() {
 			debug!(
