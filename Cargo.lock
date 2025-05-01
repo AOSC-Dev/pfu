@@ -999,6 +999,7 @@ version = "2.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "558bf9508a558512042d3095138b1f7b8fe90c5467d94f9f1da28b3731c5dbd1"
 dependencies = [
+ "serde",
  "static_assertions",
 ]
 
@@ -1039,6 +1040,7 @@ dependencies = [
  "ouroboros",
  "parking_lot",
  "reqwest",
+ "serde_json",
  "tokio",
 ]
 

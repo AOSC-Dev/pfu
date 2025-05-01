@@ -1,10 +1,10 @@
-use std::{path::PathBuf, time::SystemTime};
+use std::{path::PathBuf, sync::Arc, time::SystemTime};
 
 use anyhow::{Context, Result, bail};
 use clap::Parser;
 use console::style;
 use libabbs::tree::AbbsTree;
-use libpfu::{Session, walk_apml};
+use libpfu::{Session, absets::Autobuild4Data, walk_apml};
 use log::{debug, error, info};
 use logger::LintReporter;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
@@ -107,6 +107,8 @@ async fn main() -> Result<()> {
 		total_packages, total_linters
 	);
 
+	let ab4_data = Arc::new(Autobuild4Data::load_local()?);
+
 	let start_time = SystemTime::now();
 	for (index, package) in packages.into_iter().enumerate() {
 		if !args.quiet {
@@ -119,16 +121,18 @@ async fn main() -> Result<()> {
 				package.name()
 			);
 		}
-		let mut sess = match Session::new(abbs.clone(), package.clone()) {
-			Ok(sess) => sess,
-			Err(err) => {
-				error!(
-					"Session initialization failed for {:?}: {:#?}",
-					&package, err
-				);
-				continue;
-			}
-		};
+		let mut sess =
+			match Session::new(abbs.clone(), package.clone(), ab4_data.clone())
+			{
+				Ok(sess) => sess,
+				Err(err) => {
+					error!(
+						"Session initialization failed for {:?}: {:#?}",
+						&package, err
+					);
+					continue;
+				}
+			};
 		sess.dry = args.dry;
 		sess.offline = args.offline;
 		for (ident, linter) in &linters {

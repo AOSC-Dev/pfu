@@ -12,7 +12,9 @@ use libabbs::tree::{AbbsSourcePackage, AbbsSubPackage, AbbsTree};
 use log::debug;
 use parking_lot::{Mutex, RwLock};
 
-use crate::{apml::ApmlFileAccess, message::LintMessage};
+use crate::{
+	absets::Autobuild4Data, apml::ApmlFileAccess, message::LintMessage,
+};
 
 /// A context including information related to the package to fix.
 pub struct Session {
@@ -28,6 +30,8 @@ pub struct Session {
 	pub spec: RwLock<ApmlFileAccess>,
 	/// Sub-packages
 	pub subpackages: Vec<SubpackageSession>,
+	/// Autobuild4 data.
+	pub ab4_data: Arc<Autobuild4Data>,
 
 	/// Lazily initialized source FS
 	source_storage: tokio::sync::RwLock<Option<Arc<opendal::Operator>>>,
@@ -38,7 +42,11 @@ pub struct Session {
 }
 
 impl Session {
-	pub fn new(tree: AbbsTree, package: AbbsSourcePackage) -> Result<Self> {
+	pub fn new(
+		tree: AbbsTree,
+		package: AbbsSourcePackage,
+		ab4_data: Arc<Autobuild4Data>,
+	) -> Result<Self> {
 		let spec = ApmlFileAccess::open(package.join("spec"))?;
 		let mut subpackages = Vec::new();
 		for subpackage in package.subpackages()? {
@@ -57,6 +65,7 @@ impl Session {
 			offline: false,
 			spec: RwLock::new(spec),
 			subpackages,
+			ab4_data,
 			source_storage: tokio::sync::RwLock::default(),
 			http_client: OnceLock::default(),
 			outbox: Mutex::new(Vec::new()),

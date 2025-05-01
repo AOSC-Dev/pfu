@@ -12,6 +12,7 @@ use anyhow::Result;
 use apml::ApmlFileAccess;
 use async_trait::async_trait;
 
+pub mod absets;
 pub mod apml;
 pub mod message;
 pub mod session;
