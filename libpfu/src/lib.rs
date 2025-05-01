@@ -166,7 +166,6 @@ pub fn walk_build_scripts(sess: &Session) -> Vec<PathBuf> {
 /// Wrapper for [RwLockUpgradableReadGuard] to make it [Send].
 ///
 /// This struct is not a part of stable API.
-#[derive(Debug)]
 pub struct ReadGuardWrapper<'a, T>(RwLockUpgradableReadGuard<'a, T>);
 unsafe impl<'a, T> Send for ReadGuardWrapper<'a, T> {}
 
@@ -181,5 +180,11 @@ impl<'a, T> Deref for ReadGuardWrapper<'a, T> {
 impl<'a, T> DerefMut for ReadGuardWrapper<'a, T> {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.0
+	}
+}
+
+impl<T: Debug> Debug for ReadGuardWrapper<'_, T> {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		Debug::fmt(&self.0, f)
 	}
 }
