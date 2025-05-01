@@ -7,6 +7,7 @@ use nom::{
 	Parser,
 	branch::alt,
 	bytes::complete::{tag, take, take_while, take_while1},
+	character::complete::space0,
 	combinator::{not, opt, recognize},
 	multi::{many0, separated_list1},
 	sequence::{pair, preceded, separated_pair},
@@ -67,7 +68,8 @@ impl TryFrom<&str> for Union {
 
 	fn try_from(value: &str) -> Result<Self, Self::Error> {
 		let src = value.trim();
-		let (i, (tag, properties, argument)) = (
+		let (i, (_, tag, properties, argument)) = (
+			space0,
 			take_while1(|ch: char| ch.is_ascii_alphanumeric()),
 			opt(preceded(
 				tag("::"),
@@ -188,7 +190,7 @@ mod test {
 			union.print_lst().to_string(),
 			"\"a::b=c::https://example.org\""
 		);
-		let union = Union::try_from("a::url=https://example/example.json;pattern=\"latest-runtime\": \"(6\\..+?)\"").unwrap();
+		let union = Union::try_from("   a::url=https://example/example.json;pattern=\"latest-runtime\": \"(6\\..+?)\"").unwrap();
 		assert_eq!(union.tag, "a");
 		assert_eq!(
 			union.properties.get("url").unwrap(),
