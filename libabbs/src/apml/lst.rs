@@ -88,7 +88,7 @@ impl Display for Token<'_> {
 		match self {
 			Token::Spacy(ch) => f.write_char(*ch),
 			Token::Newline => f.write_char('\n'),
-			Token::Comment(text) => f.write_fmt(format_args!("#{}", text)),
+			Token::Comment(text) => f.write_fmt(format_args!("#{text}")),
 			Token::Variable(def) => Display::fmt(def, f),
 		}
 	}
@@ -198,7 +198,7 @@ impl Display for TextUnit<'_> {
 				Ok(())
 			}
 			TextUnit::SingleQuote(text) => {
-				f.write_fmt(format_args!("'{}'", text))
+				f.write_fmt(format_args!("'{text}'"))
 			}
 			TextUnit::DoubleQuote(words) => {
 				f.write_char('"')?;
@@ -235,10 +235,10 @@ impl Display for Word<'_> {
 				Ok(())
 			}
 			Word::UnbracedVariable(name) => {
-				f.write_fmt(format_args!("${}", name))
+				f.write_fmt(format_args!("${name}"))
 			}
 			Word::BracedVariable(exp) => {
-				f.write_fmt(format_args!("${{{}}}", exp))
+				f.write_fmt(format_args!("${{{exp}}}"))
 			}
 			Word::Subcommand(tokens) => {
 				f.write_str("$(")?;
@@ -267,7 +267,7 @@ impl Display for LiteralPart<'_> {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		match self {
 			LiteralPart::String(text) => f.write_str(text),
-			LiteralPart::Escaped(ch) => f.write_fmt(format_args!("\\{}", ch)),
+			LiteralPart::Escaped(ch) => f.write_fmt(format_args!("\\{ch}")),
 			LiteralPart::LineContinuation => f.write_str("\\\n"),
 		}
 	}
@@ -407,74 +407,72 @@ impl Display for ExpansionModifier<'_> {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		match self {
 			ExpansionModifier::Substring { offset, length } => match length {
-				None => f.write_fmt(format_args!(":{}", offset)),
-				Some(length) => {
-					f.write_fmt(format_args!(":{}:{}", offset, length))
-				}
+				None => f.write_fmt(format_args!(":{offset}")),
+				Some(length) => f.write_fmt(format_args!(":{offset}:{length}")),
 			},
 			ExpansionModifier::StripShortestPrefix(pattern) => {
-				f.write_fmt(format_args!("#{}", pattern))
+				f.write_fmt(format_args!("#{pattern}"))
 			}
 			ExpansionModifier::StripLongestPrefix(pattern) => {
-				f.write_fmt(format_args!("##{}", pattern))
+				f.write_fmt(format_args!("##{pattern}"))
 			}
 			ExpansionModifier::StripShortestSuffix(pattern) => {
-				f.write_fmt(format_args!("%{}", pattern))
+				f.write_fmt(format_args!("%{pattern}"))
 			}
 			ExpansionModifier::StripLongestSuffix(pattern) => {
-				f.write_fmt(format_args!("%%{}", pattern))
+				f.write_fmt(format_args!("%%{pattern}"))
 			}
 			ExpansionModifier::ReplaceOnce { pattern, string } => {
 				match string {
 					Some(string) => {
-						f.write_fmt(format_args!("/{}/{}", pattern, string))
+						f.write_fmt(format_args!("/{pattern}/{string}"))
 					}
-					None => f.write_fmt(format_args!("/{}", pattern)),
+					None => f.write_fmt(format_args!("/{pattern}")),
 				}
 			}
 			ExpansionModifier::ReplaceAll { pattern, string } => match string {
 				Some(string) => {
-					f.write_fmt(format_args!("//{}/{}", pattern, string))
+					f.write_fmt(format_args!("//{pattern}/{string}"))
 				}
-				None => f.write_fmt(format_args!("//{}", pattern)),
+				None => f.write_fmt(format_args!("//{pattern}")),
 			},
 			ExpansionModifier::ReplacePrefix { pattern, string } => {
 				match string {
 					Some(string) => {
-						f.write_fmt(format_args!("/#{}/{}", pattern, string))
+						f.write_fmt(format_args!("/#{pattern}/{string}"))
 					}
-					None => f.write_fmt(format_args!("/#{}", pattern)),
+					None => f.write_fmt(format_args!("/#{pattern}")),
 				}
 			}
 			ExpansionModifier::ReplaceSuffix { pattern, string } => {
 				match string {
 					Some(string) => {
-						f.write_fmt(format_args!("/%{}/{}", pattern, string))
+						f.write_fmt(format_args!("/%{pattern}/{string}"))
 					}
-					None => f.write_fmt(format_args!("/%{}", pattern)),
+					None => f.write_fmt(format_args!("/%{pattern}")),
 				}
 			}
 			ExpansionModifier::UpperOnce(pattern) => {
-				f.write_fmt(format_args!("^{}", pattern))
+				f.write_fmt(format_args!("^{pattern}"))
 			}
 			ExpansionModifier::UpperAll(pattern) => {
-				f.write_fmt(format_args!("^^{}", pattern))
+				f.write_fmt(format_args!("^^{pattern}"))
 			}
 			ExpansionModifier::LowerOnce(pattern) => {
-				f.write_fmt(format_args!(",{}", pattern))
+				f.write_fmt(format_args!(",{pattern}"))
 			}
 			ExpansionModifier::LowerAll(pattern) => {
-				f.write_fmt(format_args!(",,{}", pattern))
+				f.write_fmt(format_args!(",,{pattern}"))
 			}
 			ExpansionModifier::ErrorOnUnset(text) => {
-				f.write_fmt(format_args!(":?{}", text))
+				f.write_fmt(format_args!(":?{text}"))
 			}
 			ExpansionModifier::Length => f.write_char('#'),
 			ExpansionModifier::WhenUnset(text) => {
-				f.write_fmt(format_args!(":-{}", text))
+				f.write_fmt(format_args!(":-{text}"))
 			}
 			ExpansionModifier::WhenSet(text) => {
-				f.write_fmt(format_args!(":+{}", text))
+				f.write_fmt(format_args!(":+{text}"))
 			}
 			ExpansionModifier::ArrayElements => f.write_str("[@]"),
 			ExpansionModifier::SingleWordElements => f.write_str("[*]"),

@@ -12,6 +12,6 @@ fn main() {
 	assert_eq!(tree.to_string(), src);
 
 	if env::var("QUIET").is_err() {
-		println!("{:#?}", tree);
+		println!("{tree:#?}");
 	}
 }

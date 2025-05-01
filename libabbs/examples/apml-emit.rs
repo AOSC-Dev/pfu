@@ -15,6 +15,6 @@ fn main() {
 	let ast = ApmlAst::emit_from(&lst).unwrap();
 
 	if env::var("QUIET").is_err() {
-		println!("{:#?}", ast);
+		println!("{ast:#?}");
 	}
 }

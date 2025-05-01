@@ -65,18 +65,18 @@ impl Display for GlobPart<'_> {
 			}
 			GlobPart::AnyString => f.write_char('*'),
 			GlobPart::AnyChar => f.write_char('?'),
-			GlobPart::Range(range) => f.write_fmt(format_args!("[{}]", range)),
+			GlobPart::Range(range) => f.write_fmt(format_args!("[{range}]")),
 			GlobPart::ZeroOrOneOf(list) => {
-				f.write_fmt(format_args!("?({})", list))
+				f.write_fmt(format_args!("?({list})"))
 			}
 			GlobPart::ZeroOrMoreOf(list) => {
-				f.write_fmt(format_args!("*({})", list))
+				f.write_fmt(format_args!("*({list})"))
 			}
 			GlobPart::OneOrMoreOf(list) => {
-				f.write_fmt(format_args!("+({})", list))
+				f.write_fmt(format_args!("+({list})"))
 			}
-			GlobPart::OneOf(list) => f.write_fmt(format_args!("@({})", list)),
-			GlobPart::Not(list) => f.write_fmt(format_args!("!({})", list)),
+			GlobPart::OneOf(list) => f.write_fmt(format_args!("@({list})")),
+			GlobPart::Not(list) => f.write_fmt(format_args!("!({list})")),
 		}
 	}
 }

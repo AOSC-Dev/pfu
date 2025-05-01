@@ -9,6 +9,6 @@ fn main() {
 	let ctx = libabbs::apml::ApmlContext::eval_source(&src).unwrap();
 
 	if env::var("QUIET").is_err() {
-		println!("{:#?}", ctx);
+		println!("{ctx:#?}");
 	}
 }
