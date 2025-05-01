@@ -1,7 +1,10 @@
 //! Autobuild arch-group overrides checks.
 
+use std::collections::HashMap;
+
 use anyhow::Result;
 use async_trait::async_trait;
+use kstring::KString;
 use libabbs::apml::ast;
 use libpfu::{
 	Linter, Session, declare_lint, declare_linter,
@@ -16,6 +19,7 @@ declare_linter! {
 	[
 		"missing-archgroup",
 		"redundant-arch-overrides",
+		"acbs-arch-groups",
 	]
 }
 
@@ -33,6 +37,13 @@ declare_lint! {
 	"some arch-overrides are redundant"
 }
 
+declare_lint! {
+	pub ACBS_ARCH_GROUPS_LINT,
+	"acbs-arch-groups",
+	Error,
+	"ACBS does not support arch-groups"
+}
+
 /// Architecture-overridable variables used by ACBS
 const ACBS_VARIABLES: &[&str] = &["PKGDEP", "BUILDDEP"];
 
@@ -40,9 +51,10 @@ const ACBS_VARIABLES: &[&str] = &["PKGDEP", "BUILDDEP"];
 impl Linter for ArchGroupLinter {
 	async fn apply(&self, sess: &Session) -> Result<()> {
 		for mut apml in walk_apml(sess) {
-			debug!("Looking for redundant arch-group variables in {:?}", apml);
 			apml.with_upgraded(|apml| {
-				let mut arch_overrides = vec![];
+				debug!("Looking for arch-overrides variables in {:?}", apml);
+				let mut arch_overrides = HashMap::new();
+				let mut arch_groups = vec![];
 				'vars: for var in &apml.ast()?.0 {
 					let (var_name, target) =
 						if let Some(v) = var.name.split_once("__") {
@@ -64,7 +76,15 @@ impl Linter for ArchGroupLinter {
 										included_vars
 											.push(exp.name.to_string());
 									}
-									_ => continue 'vars,
+									_ => {
+										arch_groups.push((
+											var.name.to_string(),
+											KString::from_ref(var_name),
+											target.to_ascii_lowercase(),
+											false,
+										));
+										continue 'vars;
+									}
 								}
 							}
 						}
@@ -74,7 +94,15 @@ impl Linter for ArchGroupLinter {
 									ast::ArrayElement::ArrayInclusion(name) => {
 										included_vars.push(name.to_string());
 									}
-									_ => continue 'vars,
+									_ => {
+										arch_groups.push((
+											var.name.to_string(),
+											KString::from_ref(var_name),
+											target.to_ascii_lowercase(),
+											true,
+										));
+										continue 'vars;
+									}
 								}
 							}
 						}
@@ -96,15 +124,17 @@ impl Linter for ArchGroupLinter {
 						"Variable override '{}' included groups: {:?}",
 						var.name, included_groups
 					);
-					arch_overrides.push((
-						var.name.to_string(),
-						var_name.to_string(),
-						target.to_ascii_lowercase(),
-						included_groups,
-					));
+					arch_overrides.insert(
+						(
+							KString::from_ref(var_name),
+							target.to_ascii_lowercase(),
+						),
+						(var.name.to_string(), included_groups),
+					);
 				}
 
-				for (var_name, base_name, target, groups) in arch_overrides {
+				for ((base_name, target), (var_name, groups)) in &arch_overrides
+				{
 					for (archgroup, targets) in &sess.ab4_data.arch_groups {
 						if targets.contains(target.as_str())
 							&& !groups.contains(&archgroup.to_string())
@@ -152,6 +182,58 @@ impl Linter for ArchGroupLinter {
 									editor.remove_var(index);
 								}
 							});
+						}
+					}
+				}
+
+				// arch-groups
+				for (var_name, base_name, group, is_array) in arch_groups {
+					if !ACBS_VARIABLES.contains(&base_name.as_str()) {
+						continue;
+					}
+
+					if let Some(targets) =
+						sess.ab4_data.arch_groups.get(group.as_str())
+					{
+						for target in targets {
+							let (okay, fixable) =
+								if let Some((_, groups)) = arch_overrides.get(
+									&(base_name.clone(), target.to_string()),
+								) {
+									(groups.contains(&group), false)
+								} else {
+									(false, true)
+								};
+
+							if !okay {
+								LintMessage::new(ACBS_ARCH_GROUPS_LINT)
+									.message(format!(
+										"'{var_name}' is not included in target '{target}'",
+									))
+									.snippet(Snippet::new_variable(
+										sess, apml, &var_name,
+									))
+									.emit(sess);
+								if !sess.dry && fixable {
+									apml.with_editor(|editor| {
+										let name =format!(
+												"{}__{}",
+												base_name,
+												target.to_ascii_uppercase()
+											);
+										let value = if is_array {
+											ast::VariableValue::Array(vec![ast::ArrayElement::ArrayInclusion(var_name.to_string().into())])
+										} else {
+											ast::VariableValue::String(ast::Text(vec![ast::Word::Variable(ast::VariableExpansion{ name: var_name.to_string().into(), modifier: None })]))
+										};
+										editor.append_var_ast(
+											name,
+											&value,
+											Some(&var_name),
+										);
+									});
+								}
+							}
 						}
 					}
 				}
