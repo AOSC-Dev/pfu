@@ -1384,7 +1384,7 @@ dependencies = [
 
 [[package]]
 name = "pakfixer"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "anyhow",
  "clap",
