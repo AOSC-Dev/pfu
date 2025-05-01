@@ -22,8 +22,7 @@ pub async fn load(package: &str, version: &str) -> Result<Operator> {
 		.next()
 		.ok_or_else(|| anyhow!("empty package name"))?;
 	let url = format!(
-		"https://pypi.io/packages/source/{}/{}/{}-{}.tar.gz",
-		prefix, package, package, version
+		"https://pypi.io/packages/source/{prefix}/{package}/{package}-{version}.tar.gz"
 	);
 	fetch_tarball(url).await
 }
@@ -42,7 +41,7 @@ async fn collect_alt_hints(package: &str) -> Result<Vec<String>> {
 
 	debug!("Fetching PYPI project information: {}", package);
 	let client = http_client()?;
-	let url = format!("https://pypi.org/pypi/{}/json", package);
+	let url = format!("https://pypi.org/pypi/{package}/json");
 	let proj_json = client
 		.execute(client.get(&url).build()?)
 		.await?

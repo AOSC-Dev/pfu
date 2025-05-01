@@ -37,7 +37,7 @@ pub async fn open(ctx: ApmlContext) -> Result<Operator> {
 	if srcs.len() == 1 {
 		let src = srcs[0].clone();
 		let un = if src.starts_with("https://") || src.starts_with("http://") {
-			Union::try_from(format!("tbl::{}", src).as_str())?
+			Union::try_from(format!("tbl::{src}").as_str())?
 		} else {
 			Union::try_from(src.as_str())?
 		};
