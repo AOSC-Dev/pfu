@@ -70,6 +70,8 @@ impl Display for DependencyOrigin {
 
 // TODO: support requirements.txt
 pub async fn collect_deps(sess: &Session) -> Result<Vec<Dependency>> {
+	debug!("collecting Python dependencies of {:?}", sess.package);
+
 	if let Ok(pyproj_str) = sess.source_fs().await?.read("pyproject.toml").await
 	{
 		debug!("pyproject.toml found for {:?}", sess.package);

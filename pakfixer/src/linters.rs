@@ -2,7 +2,8 @@
 
 use libpfu::LinterMetadata;
 use libpfu_fixers::{
-	fish_shell::FISH_SHELL_LINTER, python::pep517::PEP517_LINTER,
+	fish_shell::FISH_SHELL_LINTER,
+	python::{deps::PYTHON_DEPS_LINTER, pep517::PEP517_LINTER},
 };
 use libpfu_style::{
 	chkupd::CHKUPDATE_LINTER, empty_line::EMPTY_LINE_LINTER,
@@ -33,6 +34,7 @@ pub static FULL_LINTERS: LinterPreset = &[
 	CHKUPDATE_LINTER,
 	FISH_SHELL_LINTER,
 	PEP517_LINTER,
+	PYTHON_DEPS_LINTER,
 ];
 pub static BASELINE_LINTERS: LinterPreset = &[
 	EXTRA_SPACES_LINTER,
@@ -41,7 +43,7 @@ pub static BASELINE_LINTERS: LinterPreset = &[
 	CHKUPDATE_LINTER,
 	FISH_SHELL_LINTER,
 ];
-pub static EXTRA_LINTERS: LinterPreset = &[PEP517_LINTER];
+pub static EXTRA_LINTERS: LinterPreset = &[PEP517_LINTER, PYTHON_DEPS_LINTER];
 pub static PEDANTIC_LINTERS: LinterPreset = &[];
 pub static CRAZY_LINTERS: LinterPreset = &[];
 

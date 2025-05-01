@@ -10,8 +10,6 @@ use libpfu::{
 };
 use log::debug;
 
-use crate::python::depsolver;
-
 declare_linter! {
 	pub PEP517_LINTER,
 	Pep517Linter,
@@ -20,7 +18,6 @@ declare_linter! {
 		"pep517-nopython2",
 		"pep517-python2-dep",
 		"pep517-python3-dep",
-		"pep517-suggested-dep",
 	]
 }
 
@@ -52,13 +49,6 @@ declare_lint! {
 	"python-3 must be included as a runtime dependency of PEP-517 package"
 }
 
-declare_lint! {
-	pub PEP517_SUGGEST_DEP_LINT,
-	"pep517-suggested-dep",
-	Note,
-	"the package may misses some dependencies (found from pyproject.toml)"
-}
-
 #[async_trait]
 impl Linter for Pep517Linter {
 	async fn apply(&self, sess: &Session) -> Result<()> {
@@ -66,12 +56,6 @@ impl Linter for Pep517Linter {
 			debug!(
 				"pyproject.toml found, checking PEP-517 lints for {:?}",
 				sess.package
-			);
-
-			let mut py_deps = depsolver::collect_deps(sess).await?;
-			debug!(
-				"Collected Python dependencies for {:?}: {:?}",
-				sess.package, py_deps
 			);
 
 			for mut apml in walk_defines(sess) {
@@ -134,14 +118,7 @@ impl Linter for Pep517Linter {
 				})?;
 				let mut pkgdep = StringArray::from(pkgdep);
 				let mut pkgdep_dirty = false;
-				let builddep = apml.with_upgraded(|apml| {
-					apml.ctx().map(|ctx| {
-						ctx.get("BUILDDEP")
-							.map(|val| val.as_string())
-							.unwrap_or_default()
-					})
-				})?;
-				let mut builddep = StringArray::from(builddep);
+
 				if pkgdep.iter().any(|dep| dep == "python-2") {
 					apml.with_upgraded(|apml| {
 						LintMessage::new(PEP517_PYTHON2_DEP_LINT)
@@ -172,50 +149,6 @@ impl Linter for Pep517Linter {
 						pkgdep_dirty = true;
 					}
 				}
-				for dep in &mut py_deps {
-					if let Some(prov_pkg) =
-						depsolver::find_system_package(dep, &pkgdep, &builddep)
-							.await?
-					{
-						if pkgdep.contains(&prov_pkg)
-							|| (dep.build_dep && builddep.contains(&prov_pkg))
-						{
-							continue;
-						}
-
-						apml.with_upgraded(|apml| {
-							if !dep.build_dep {
-								LintMessage::new(PEP517_SUGGEST_DEP_LINT)
-									.snippet(Snippet::new_variable(
-										sess, apml, "PKGDEP",
-									))
-									.note(format!(
-										"package {prov_pkg} provides runtime dependency {}",
-										dep.name
-									))
-									.emit(sess);
-								if !sess.dry {
-									pkgdep.push(prov_pkg.clone());
-									pkgdep_dirty = true;
-								}
-							} else {
-								LintMessage::new(PEP517_SUGGEST_DEP_LINT)
-									.snippet(Snippet::new_variable(
-										sess, apml, "BUILDDEP",
-									))
-									.note(format!(
-										"package {prov_pkg} provides build dependency {}",
-										dep.name
-									))
-									.emit(sess);
-								if !sess.dry {
-									builddep.push(prov_pkg.clone());
-									pkgdep_dirty = true;
-								}
-							}
-						});
-					}
-				}
 				if pkgdep_dirty {
 					apml.with_upgraded(|apml| {
 						apml.with_editor(|apml| {
@@ -223,12 +156,6 @@ impl Linter for Pep517Linter {
 								"PKGDEP",
 								lst::VariableValue::String(
 									pkgdep.print().into(),
-								),
-							);
-							apml.replace_var_lst(
-								"BUILDDEP",
-								lst::VariableValue::String(
-									builddep.print().into(),
 								),
 							);
 						})
