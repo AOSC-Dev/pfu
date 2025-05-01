@@ -101,7 +101,7 @@ impl Linter for SrcsLinter {
 					|| src.starts_with("http://")
 					|| !src.contains("::")
 				{
-					Union::try_from(format!("tbl::{}", src).as_str())?
+					Union::try_from(format!("tbl::{src}").as_str())?
 				} else {
 					Union::try_from(src.as_str())?
 				};
@@ -131,8 +131,7 @@ impl Linter for SrcsLinter {
 							apml.with_upgraded(|apml| {
 								LintMessage::new(INSECURE_SRC_URL_LINT)
 									.note(format!(
-										"source {} should use https://",
-										idx
+										"source {idx} should use https://"
 									))
 									.snippet(Snippet::new_variable(
 										sess, apml, "SRCS",
@@ -146,8 +145,8 @@ impl Linter for SrcsLinter {
 											.0
 											.unwrap_or(domain_path);
 										text.replace(
-											&format!("http://{}", domain),
-											&format!("https://{}", domain),
+											&format!("http://{domain}"),
+											&format!("https://{domain}"),
 										)
 									})?;
 								}
@@ -157,8 +156,7 @@ impl Linter for SrcsLinter {
 							apml.with_upgraded(|apml| {
 								LintMessage::new(HTTPS_UNSUPPORTED_SRC_LINT)
 									.note(format!(
-										"source {} does not support https://",
-										idx
+										"source {idx} does not support https://"
 									))
 									.snippet(Snippet::new_variable(
 										sess, apml, "SRCS",
