@@ -68,14 +68,18 @@ impl Display for DependencyOrigin {
 	}
 }
 
-// TODO: support requirements.txt
 pub async fn collect_deps(sess: &Session) -> Result<Vec<Dependency>> {
 	debug!("collecting Python dependencies of {:?}", sess.package);
 
 	if let Ok(pyproj_str) = sess.source_fs().await?.read("pyproject.toml").await
 	{
-		debug!("pyproject.toml found for {:?}", sess.package);
+		debug!("pyproject.toml found in {:?}", sess.package);
 		collect_from_pyproject(&String::from_utf8(pyproj_str.to_vec())?)
+	} else if let Ok(req_txt_str) =
+		sess.source_fs().await?.read("requirements.txt").await
+	{
+		debug!("requirements.txt found in {:?}", sess.package);
+		collect_from_requirementstxt(&String::from_utf8(req_txt_str.to_vec())?)
 	} else {
 		Ok(vec![])
 	}
@@ -116,6 +120,27 @@ fn collect_from_pyproject(pyproject_str: &str) -> Result<Vec<Dependency>> {
 	}
 
 	Ok(py_deps)
+}
+
+fn collect_from_requirementstxt(req_txt_str: &str) -> Result<Vec<Dependency>> {
+	Ok(req_txt_str
+		.lines()
+		.map(|s| s.split_once('#').map_or(s, |(s, _)| s))
+		.map(|s| s.trim())
+		.filter(|s| !s.is_empty())
+		.filter_map(|raw_req| {
+			if let Some(name) = Dependency::extract_name_from_req(raw_req) {
+				Some(Dependency {
+					name,
+					build_dep: false,
+					origin: DependencyOrigin::RequirementsTxt,
+					raw_req: raw_req.to_string(),
+				})
+			} else {
+				None
+			}
+		})
+		.collect())
 }
 
 #[derive(Debug, Deserialize)]
