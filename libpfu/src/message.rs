@@ -3,6 +3,7 @@
 use std::{borrow::Cow, path::Path};
 
 use libabbs::apml::lst;
+use log::debug;
 
 use crate::{LintMetadata, Session, apml::ApmlFileAccess};
 
@@ -99,28 +100,36 @@ impl Snippet {
 		apml: &mut ApmlFileAccess,
 		var: &str,
 	) -> Self {
-		let (index, source) = apml
-			.read_with_editor(|editor| {
-				editor
-					.find_var(var)
-					.map(|(index, token)| (index, token.to_string()))
-			})
-			.unwrap();
-		let lst = apml.lst();
 		let path = apml
 			.path()
 			.strip_prefix(sess.tree.as_path())
 			.unwrap_or(apml.path())
 			.to_string_lossy()
 			.to_string();
-		let line = lst.0[0..index]
-			.iter()
-			.filter(|token| matches!(token, lst::Token::Newline))
-			.count() + 1;
-		Self {
-			path,
-			line: Some(line),
-			source: Some(source),
+		if let Some((index, source)) = apml.read_with_editor(|editor| {
+			editor
+				.find_var(var)
+				.map(|(index, token)| (index, token.to_string()))
+		}) {
+			let lst = apml.lst();
+			let line = lst.0[0..index]
+				.iter()
+				.filter(|token| matches!(token, lst::Token::Newline))
+				.count() + 1;
+			Self {
+				path,
+				line: Some(line),
+				source: Some(source),
+			}
+		} else {
+			debug!(
+				"A lint message pointing to '{var}' in {path} is created but the variable is not found"
+			);
+			Self {
+				path,
+				line: None,
+				source: None,
+			}
 		}
 	}
 
