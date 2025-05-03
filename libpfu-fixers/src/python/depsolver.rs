@@ -28,9 +28,9 @@ impl Dependency {
 			}
 		}
 
-		// remove version specifier and platform specifier
+		// remove version specifier, platform specifier and feature specifiers
 		let req = req
-			.split_once([' ', '>', '<', '~', '=', ';'])
+			.split_once([' ', '>', '<', '~', '=', ';', '['])
 			.map_or(req, |(req, _)| req);
 		Some(KString::from_ref(req))
 	}
@@ -303,6 +303,7 @@ dependencies = [
 decorator==4.0.10
 requests
 pip~=100.0
+a[b]
 "##
 			)
 			.unwrap(),
@@ -330,6 +331,12 @@ pip~=100.0
 					build_dep: false,
 					origin: DependencyOrigin::RequirementsTxt,
 					raw_req: "pip~=100.0".into(),
+				},
+				Dependency {
+					name: "a".into(),
+					build_dep: false,
+					origin: DependencyOrigin::RequirementsTxt,
+					raw_req: "a[b]".into(),
 				},
 			]
 		);
