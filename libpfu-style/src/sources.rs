@@ -59,13 +59,13 @@ const REGEX_TBL: &str = "(tarball|tbl)::";
 const REGEX_VERSION_TAR: &str = r##"(?P<version>\$VER|[a-zA-Z0-9\.]*\$\{[^}]+\}|[^\.]+)\.tar(\.gz|\.xz|\.bz2|\.bz|\.zstd|\.zst|)"##;
 
 static REGEX_PYPI: LazyLock<Regex> = LazyLock::new(|| {
-	Regex::new(r##"http(s|)://(?:pypi\.io|pypi\.python\.org)/packages/source/[A-Za-z]/(?P<name>[A-Za-z0-9\._\-]+)/([A-Za-z0-9\._\-]+)"##).unwrap()
+	Regex::new(r##"http(s|)://(?:pypi\.io|pypi\.org|pypi\.python\.org)/packages/source/[A-Za-z]/(?P<name>[A-Za-z0-9\._\-]+)/([A-Za-z0-9\._\-]+)"##).unwrap()
 });
 static REGEX_PYPI_FULL: LazyLock<Regex> = LazyLock::new(|| {
 	let regex = format!(
 		"{}{}{}",
 		REGEX_TBL,
-		r##"http(s|)://(?:pypi\.io|pypi\.python\.org)/packages/source/[A-Za-z]/(?P<name>[A-Za-z0-9\._\-]+)/([A-Za-z0-9\._\-]+)-"##,
+		r##"http(s|)://(?:pypi\.io|pypi\.org|pypi\.python\.org)/packages/source/[A-Za-z]/(?P<name>[A-Za-z0-9\._\-]+)/([A-Za-z0-9\._\-]+)-"##,
 		REGEX_VERSION_TAR
 	);
 	Regex::new(&regex).unwrap()
