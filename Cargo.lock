@@ -1010,7 +1010,7 @@ dependencies = [
 
 [[package]]
 name = "libabbs"
-version = "0.1.7"
+version = "0.1.8"
 dependencies = [
  "kstring",
  "nom",
