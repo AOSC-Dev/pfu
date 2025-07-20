@@ -13,7 +13,7 @@ anyhow = "1.0.98"
 async-trait = "0.1.88"
 kstring = "2.0.2"
 libabbs = { version = "0.1.8", path = "../libabbs" }
-libpfu = { version = "0.1.5", path = "../libpfu" }
+libpfu = { version = "0.1.6", path = "../libpfu" }
 log = "0.4.27"
 oma-contents = { version = "0.17.1", features = ["aosc"] }
 opendal = "0.53.1"
