@@ -48,19 +48,18 @@ impl Linter for PythonDepsLinter {
 		}
 
 		for mut apml in walk_defines(sess) {
-			debug!("Checking Python dependencies for {:?}", apml);
+			debug!("Checking Python dependencies for {apml:?}");
 			let abtype = apml.with_upgraded(|apml| {
 				apml.ctx()
 					.map(|ctx| ctx.get("ABTYPE").map(|val| val.as_string()))
 			})?;
-			if let Some(abtype) = abtype {
-				if abtype != "pep517" && abtype != "python" {
+			if let Some(abtype) = abtype
+				&& abtype != "pep517" && abtype != "python" {
 					debug!(
 						"Explicit ABTYPE '{abtype}' is not Python, skipping PEP-517 lints"
 					);
 					continue;
 				}
-			}
 
 			let [pkgdep, builddep] = ["PKGDEP", "BUILDDEP"].map(|var| {
 				apml.with_upgraded(|apml| {

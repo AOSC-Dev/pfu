@@ -87,7 +87,7 @@ pub async fn collect_deps(sess: &Session) -> Result<Vec<Dependency>> {
 
 fn collect_from_pyproject(pyproject_str: &str) -> Result<Vec<Dependency>> {
 	let pyproject = toml::from_str::<PyprojectToml>(pyproject_str)?;
-	debug!("Parsed pyproject.toml: {:?}", pyproject);
+	debug!("Parsed pyproject.toml: {pyproject:?}");
 
 	let mut py_deps = vec![];
 	for raw_req in pyproject.project.dependencies {
