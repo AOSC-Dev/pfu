@@ -14,7 +14,7 @@ async-trait = "0.1.88"
 itertools = "0.14.0"
 kstring = "2.0.2"
 libabbs = { version = "0.1.8", path = "../libabbs" }
-libpfu = { version = "0.1.6", path = "../libpfu" }
+libpfu = { version = "0.1.7", path = "../libpfu" }
 log = "0.4.27"
 opendal = "0.54.0"
 regex = "1.11.1"
