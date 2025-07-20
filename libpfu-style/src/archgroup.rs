@@ -56,7 +56,7 @@ impl Linter for ArchGroupLinter {
 		};
 		for mut apml in walk_apml(sess) {
 			apml.with_upgraded(|apml| {
-				debug!("Looking for arch-overrides variables in {:?}", apml);
+				debug!("Looking for arch-overrides variables in {apml:?}");
 				let mut arch_overrides = HashMap::new();
 				let mut arch_groups = vec![];
 				'vars: for var in &apml.ast()?.0 {

@@ -28,7 +28,7 @@ declare_lint! {
 impl Linter for ExtraSpacesLinter {
 	async fn apply(&self, sess: &Session) -> Result<()> {
 		for mut apml in walk_apml(sess) {
-			debug!("Looking for extra spaces in {:?}", apml);
+			debug!("Looking for extra spaces in {apml:?}");
 			let mut ranges = apml
 				.lst()
 				.0

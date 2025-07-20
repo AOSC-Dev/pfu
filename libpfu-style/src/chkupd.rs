@@ -37,7 +37,7 @@ declare_lint! {
 impl Linter for ChkUpdateLinter {
 	async fn apply(&self, sess: &Session) -> Result<()> {
 		for mut apml in walk_apml(sess) {
-			debug!("Checking CHKUPDATE in {:?}", apml);
+			debug!("Checking CHKUPDATE in {apml:?}");
 			let (chkupdate, chkupdate_idx) = apml.with_upgraded(|apml| {
 				(
 					apml.ctx().map(|ctx| ctx.read("CHKUPDATE").into_string()),

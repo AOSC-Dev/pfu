@@ -90,7 +90,7 @@ static REGEX_GH_TAR_FULL: LazyLock<Regex> = LazyLock::new(|| {
 impl Linter for SrcsLinter {
 	async fn apply(&self, sess: &Session) -> Result<()> {
 		for mut apml in walk_apml(sess) {
-			debug!("Looking for less-specific handlers in SRCS in {:?}", apml);
+			debug!("Looking for less-specific handlers in SRCS in {apml:?}");
 			let srcs = apml.with_upgraded(|apml| {
 				apml.ctx().map(|ctx| ctx.read("SRCS").into_string())
 			});
@@ -106,13 +106,13 @@ impl Linter for SrcsLinter {
 					Union::try_from(src.as_str())?
 				};
 
-				if let Some(url) = &un.argument {
-					if let Some(domain_path) = url.strip_prefix("http://") {
+				if let Some(url) = &un.argument
+					&& let Some(domain_path) = url.strip_prefix("http://") {
 						let mut https_valid = true;
 
 						if !sess.offline {
 							let https_url = url.replace("http://", "https://");
-							debug!("Checking HTTPS URL: {}", https_url);
+							debug!("Checking HTTPS URL: {https_url}");
 							let client = sess.http_client()?;
 							if let Ok(status) = client
 								.head(https_url)
@@ -165,7 +165,6 @@ impl Linter for SrcsLinter {
 							});
 						}
 					}
-				}
 
 				match un.tag.to_ascii_lowercase().as_str() {
 					"tarball" | "tbl" => {

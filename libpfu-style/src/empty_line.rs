@@ -47,7 +47,7 @@ impl Linter for EmptyLineLinter {
 	async fn apply(&self, sess: &Session) -> Result<()> {
 		for mut apml in walk_apml(sess) {
 			{
-				debug!("Looking for missing trailing new lines in {:?}", apml);
+				debug!("Looking for missing trailing new lines in {apml:?}");
 				let missing_new_line = apml
 					.lst()
 					.0
@@ -71,7 +71,7 @@ impl Linter for EmptyLineLinter {
 				}
 			}
 			{
-				debug!("Counting trailing empty lines in {:?}", apml);
+				debug!("Counting trailing empty lines in {apml:?}");
 				let trailing_newlines = apml
 					.lst()
 					.0
@@ -98,7 +98,7 @@ impl Linter for EmptyLineLinter {
 				}
 			}
 			{
-				debug!("Counting continuous empty lines in {:?}", apml);
+				debug!("Counting continuous empty lines in {apml:?}");
 				enum State {
 					NotEmpty,
 					Empty { from: usize, lines: usize },
