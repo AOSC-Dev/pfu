@@ -55,7 +55,7 @@ impl LinterSelector {
 			{
 				self.presets.insert(preset);
 			} else {
-				warn!("Unknown selector directive is ignored: {}", directive)
+				warn!("Unknown selector directive is ignored: {directive}")
 			}
 		}
 	}
@@ -105,7 +105,7 @@ impl LinterSelector {
 					)
 				}
 			} else {
-				warn!("Ignoring unknown linter {}", linter);
+				warn!("Ignoring unknown linter {linter}");
 			}
 		}
 		(linters, self.disabled_lints)

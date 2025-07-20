@@ -103,8 +103,7 @@ async fn main() -> Result<()> {
 	let total_packages = packages.len();
 	let total_linters = linters.len();
 	info!(
-		"Selected {} packages, {} linters",
-		total_packages, total_linters
+		"Selected {total_packages} packages, {total_linters} linters"
 	);
 
 	let ab4_data = Autobuild4Data::load_local()?.map(Arc::new);
