@@ -107,7 +107,7 @@ async fn main() -> Result<()> {
 		total_packages, total_linters
 	);
 
-	let ab4_data = Arc::new(Autobuild4Data::load_local()?);
+	let ab4_data = Autobuild4Data::load_local()?.map(Arc::new);
 
 	let start_time = SystemTime::now();
 	for (index, package) in packages.into_iter().enumerate() {

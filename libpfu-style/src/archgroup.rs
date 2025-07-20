@@ -50,6 +50,10 @@ const ACBS_VARIABLES: &[&str] = &["PKGDEP", "BUILDDEP"];
 #[async_trait]
 impl Linter for ArchGroupLinter {
 	async fn apply(&self, sess: &Session) -> Result<()> {
+		let ab4_data = match &sess.ab4_data {
+			Some(v) => v,
+			None => return Ok(()),
+		};
 		for mut apml in walk_apml(sess) {
 			apml.with_upgraded(|apml| {
 				debug!("Looking for arch-overrides variables in {:?}", apml);
@@ -135,7 +139,7 @@ impl Linter for ArchGroupLinter {
 
 				for ((base_name, target), (var_name, groups)) in &arch_overrides
 				{
-					for (archgroup, targets) in &sess.ab4_data.arch_groups {
+					for (archgroup, targets) in &ab4_data.arch_groups {
 						if targets.contains(target.as_str())
 							&& !groups.contains(&archgroup.to_string())
 						{
@@ -162,7 +166,7 @@ impl Linter for ArchGroupLinter {
 
 					if !ACBS_VARIABLES.contains(&base_name.as_str())
 						&& groups.iter().all(|group| {
-							sess.ab4_data
+							ab4_data
 								.arch_groups
 								.get(group.as_str())
 								.is_some_and(|targets| {
@@ -193,7 +197,7 @@ impl Linter for ArchGroupLinter {
 					}
 
 					if let Some(targets) =
-						sess.ab4_data.arch_groups.get(group.as_str())
+						ab4_data.arch_groups.get(group.as_str())
 					{
 						for target in targets {
 							let (okay, fixable) =

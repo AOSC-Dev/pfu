@@ -31,7 +31,7 @@ pub struct Session {
 	/// Sub-packages
 	pub subpackages: Vec<SubpackageSession>,
 	/// Autobuild4 data.
-	pub ab4_data: Arc<Autobuild4Data>,
+	pub ab4_data: Option<Arc<Autobuild4Data>>,
 
 	/// Lazily initialized source FS
 	source_storage: tokio::sync::RwLock<Option<Arc<opendal::Operator>>>,
@@ -45,7 +45,7 @@ impl Session {
 	pub fn new(
 		tree: AbbsTree,
 		package: AbbsSourcePackage,
-		ab4_data: Arc<Autobuild4Data>,
+		ab4_data: Option<Arc<Autobuild4Data>>,
 	) -> Result<Self> {
 		let spec = ApmlFileAccess::open(package.join("spec"))?;
 		let mut subpackages = Vec::new();
