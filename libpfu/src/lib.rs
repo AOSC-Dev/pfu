@@ -36,7 +36,7 @@ pub struct LinterMetadata {
 }
 
 /// Constructor of a linter;
-pub type LinterFactory = &'static (dyn Send + Sync + (Fn() -> Box<dyn Linter>));
+pub type LinterFactory = &'static (dyn Send + Sync + Fn() -> Box<dyn Linter>);
 
 impl LinterMetadata {
 	/// Constructs an instance of the underlying linter.
@@ -128,7 +128,7 @@ macro_rules! declare_lint {
     );
 }
 
-pub fn walk_apml(sess: &Session) -> Vec<ReadGuardWrapper<ApmlFileAccess>> {
+pub fn walk_apml(sess: &'_ Session) -> Vec<ReadGuardWrapper<'_,ApmlFileAccess>> {
 	let mut result = vec![ReadGuardWrapper(sess.spec.upgradable_read())];
 	for subpkg in &sess.subpackages {
 		for recipe in &subpkg.recipes {
@@ -138,7 +138,7 @@ pub fn walk_apml(sess: &Session) -> Vec<ReadGuardWrapper<ApmlFileAccess>> {
 	result
 }
 
-pub fn walk_defines(sess: &Session) -> Vec<ReadGuardWrapper<ApmlFileAccess>> {
+pub fn walk_defines(sess: &'_ Session) -> Vec<ReadGuardWrapper<'_,ApmlFileAccess>> {
 	let mut result = vec![];
 	for subpkg in &sess.subpackages {
 		for recipe in &subpkg.recipes {
