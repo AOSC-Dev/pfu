@@ -14,7 +14,7 @@ async-trait = "0.1.88"
 futures = "0.3.31"
 kstring = { version = "2.0.2", features = ["serde"] }
 libabbs = { version = "0.1.8", path = "../libabbs" }
-libpfu-source = { version = "0.2.3", path = "../libpfu-source" }
+libpfu-source = { version = "0.2.4", path = "../libpfu-source" }
 log = "0.4.27"
 opendal = "0.53.1"
 ouroboros = "0.18.5"
