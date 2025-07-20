@@ -675,13 +675,12 @@ impl<'a> AstNode for ArrayElement<'a> {
 						| lst::TextUnit::DoubleQuote(words) => {
 							if words.len() == 1 {
 								let word = &words[0];
-								if let lst::Word::BracedVariable(word) = word {
-									if word.modifier == Some(lst::ExpansionModifier::ArrayElements)
+								if let lst::Word::BracedVariable(word) = word
+									&& word.modifier == Some(lst::ExpansionModifier::ArrayElements)
 									{
 										// expand array elements
 										return Ok(Self::ArrayInclusion(word.name.clone()));
 									}
-								}
 							}
 						}
 						lst::TextUnit::SingleQuote(_) => {}

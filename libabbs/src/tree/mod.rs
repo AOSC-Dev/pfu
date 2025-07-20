@@ -50,12 +50,12 @@ impl AbbsTree {
 		let mut result = Vec::new();
 		for entry in self.as_path().read_dir()? {
 			let entry = entry?;
-			if entry.file_type()?.is_dir() {
-				if let Some(name) = entry.file_name().to_str() {
-					if !name.starts_with('.') && name.contains('-') {
-						result.push(SectionName::from_ref(name));
-					}
-				}
+			if entry.file_type()?.is_dir()
+				&& let Some(name) = entry.file_name().to_str()
+				&& !name.starts_with('.')
+				&& name.contains('-')
+			{
+				result.push(SectionName::from_ref(name));
 			}
 		}
 		Ok(result)
@@ -128,10 +128,10 @@ impl AbbsTree {
 		match self.find_package(name) {
 			Ok(package) => {
 				for subpkg in package.subpackages()? {
-					if let Ok(subpkg_name) = subpkg.name() {
-						if subpkg_name == name {
-							return Ok(subpkg);
-						}
+					if let Ok(subpkg_name) = subpkg.name()
+						&& subpkg_name == name
+					{
+						return Ok(subpkg);
 					}
 				}
 			}
@@ -140,10 +140,10 @@ impl AbbsTree {
 		}
 		for package in self.all_packages()? {
 			for subpkg in package.subpackages()? {
-				if let Ok(subpkg_name) = subpkg.name() {
-					if subpkg_name == name {
-						return Ok(subpkg);
-					}
+				if let Ok(subpkg_name) = subpkg.name()
+					&& subpkg_name == name
+				{
+					return Ok(subpkg);
 				}
 			}
 		}

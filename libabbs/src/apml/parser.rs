@@ -33,12 +33,12 @@ impl From<nom::Err<nom::error::Error<&str>>> for ParseError {
 }
 
 /// Parses a complete APML source into LST.
-pub fn apml_lst(i: &str) -> IResult<&str, ApmlLst> {
+pub fn apml_lst(i: &'_ str) -> IResult<&'_ str, ApmlLst<'_>> {
 	many0(token).map(ApmlLst).parse(i)
 }
 
 #[inline]
-fn token(i: &str) -> IResult<&str, Token> {
+fn token(i: &'_ str) -> IResult<&'_ str, Token<'_>> {
 	alt((
 		// spacy
 		map(spacy_char, Token::Spacy),
@@ -58,14 +58,14 @@ fn spacy_char(i: &str) -> IResult<&str, char> {
 }
 
 #[inline]
-fn comment_token(i: &str) -> IResult<&str, Token> {
+fn comment_token(i: &'_ str) -> IResult<&'_ str, Token<'_>> {
 	preceded(char('#'), take_till(|ch| ch == '\n'))
 		.map(|comment| Token::Comment(Cow::Borrowed(comment)))
 		.parse(i)
 }
 
 #[inline]
-fn variable_def(i: &str) -> IResult<&str, VariableDefinition> {
+fn variable_def(i: &'_ str) -> IResult<&'_ str, VariableDefinition<'_>> {
 	(variable_name, variable_op, variable_value)
 		.map(|(name, op, value)| VariableDefinition {
 			name: Cow::Borrowed(name),
@@ -76,7 +76,7 @@ fn variable_def(i: &str) -> IResult<&str, VariableDefinition> {
 }
 
 #[inline]
-fn variable_op(i: &str) -> IResult<&str, VariableOp> {
+fn variable_op(i: &'_ str) -> IResult<&'_ str, VariableOp> {
 	alt((
 		value(VariableOp::Assignment, char('=')),
 		value(VariableOp::Append, tag("+=")),
@@ -85,12 +85,12 @@ fn variable_op(i: &str) -> IResult<&str, VariableOp> {
 }
 
 #[inline]
-fn variable_name(i: &str) -> IResult<&str, &str> {
+fn variable_name(i: &'_ str) -> IResult<&'_ str, &'_ str> {
 	take_while1(|ch: char| ch.is_alphanumeric() || ch == '_')(i)
 }
 
 #[inline]
-fn variable_value(i: &str) -> IResult<&str, VariableValue> {
+fn variable_value(i: &'_ str) -> IResult<&'_ str, VariableValue<'_>> {
 	alt((
 		// array
 		map(
@@ -107,7 +107,7 @@ fn variable_value(i: &str) -> IResult<&str, VariableValue> {
 }
 
 #[inline]
-fn array_token(i: &str) -> IResult<&str, ArrayToken> {
+fn array_token(i: &'_ str) -> IResult<&'_ str, ArrayToken<'_>> {
 	alt((
 		// spacy
 		map(spacy_char, ArrayToken::Spacy),
@@ -242,7 +242,7 @@ where
 }
 
 #[inline]
-fn braced_expansion(i: &str) -> IResult<&str, BracedExpansion> {
+fn braced_expansion(i: &'_ str) -> IResult<&'_ str, BracedExpansion<'_>> {
 	alt((
 		// length of
 		map(preceded(char('#'), variable_name), |name| BracedExpansion {
@@ -262,17 +262,19 @@ fn braced_expansion(i: &str) -> IResult<&str, BracedExpansion> {
 }
 
 #[inline]
-fn expansion_modifier(i: &str) -> IResult<&str, ExpansionModifier> {
+fn expansion_modifier(i: &'_ str) -> IResult<&'_ str, ExpansionModifier<'_>> {
 	#[inline]
-	fn expansion_glob(i: &str) -> IResult<&str, Arc<BashPattern>> {
+	fn expansion_glob(i: &'_ str) -> IResult<&'_ str, Arc<BashPattern<'_>>> {
 		map(|s| bash_pattern(s, "}"), Arc::new).parse(i)
 	}
 	#[inline]
-	fn expansion_glob_replace(i: &str) -> IResult<&str, Arc<BashPattern>> {
+	fn expansion_glob_replace(
+		i: &'_ str,
+	) -> IResult<&'_ str, Arc<BashPattern<'_>>> {
 		map(|s| bash_pattern(s, "}/"), Arc::new).parse(i)
 	}
 	#[inline]
-	fn expansion_text(i: &str) -> IResult<&str, Arc<Text>> {
+	fn expansion_text(i: &'_ str) -> IResult<&'_ str, Arc<Text<'_>>> {
 		map(|s| text_or_null(s, &|ch| ch != '}'), Arc::new).parse(i)
 	}
 	alt((
@@ -384,7 +386,9 @@ fn expansion_modifier(i: &str) -> IResult<&str, ExpansionModifier> {
 }
 
 #[inline]
-fn substring_expansion_modifier(i: &str) -> IResult<&str, ExpansionModifier> {
+fn substring_expansion_modifier(
+	i: &'_ str,
+) -> IResult<&'_ str, ExpansionModifier<'_>> {
 	#[inline]
 	fn number(i: &str) -> IResult<&str, Cow<'_, str>> {
 		take_while1(|ch: char| ch.is_ascii_digit() || " \n-\t".contains(ch))

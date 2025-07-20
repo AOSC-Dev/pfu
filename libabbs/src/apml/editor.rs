@@ -118,10 +118,10 @@ impl<'b> ApmlEditor<'_, 'b> {
 		name: S,
 	) -> Option<&lst::Token<'b>> {
 		self.lst_tokens_iter().find(|token| {
-			if let lst::Token::Variable(var) = token {
-				if var.name.as_ref() == name.as_ref() {
-					return true;
-				}
+			if let lst::Token::Variable(var) = token
+				&& var.name.as_ref() == name.as_ref()
+			{
+				return true;
 			}
 			false
 		})
@@ -148,19 +148,19 @@ impl<'b> ApmlEditor<'_, 'b> {
 			value: value.lower(),
 		};
 		let token = lst::Token::Variable(definition);
-		if let Some(after) = after {
-			if let Some((index, _)) = self.find_var(after) {
-				let after = self
-					.lst_tokens_iter()
-					.skip(index)
-					.take_while(|token| !matches!(token, lst::Token::Newline))
-					.count();
-				let index = index + after + 1;
-				if index <= self.lst_tokens().len() {
-					self.lst_tokens_mut().insert(index, lst::Token::Newline);
-					self.lst_tokens_mut().insert(index, token);
-					return;
-				}
+		if let Some(after) = after
+			&& let Some((index, _)) = self.find_var(after)
+		{
+			let after = self
+				.lst_tokens_iter()
+				.skip(index)
+				.take_while(|token| !matches!(token, lst::Token::Newline))
+				.count();
+			let index = index + after + 1;
+			if index <= self.lst_tokens().len() {
+				self.lst_tokens_mut().insert(index, lst::Token::Newline);
+				self.lst_tokens_mut().insert(index, token);
+				return;
 			}
 		}
 		self.ensure_end_newline();

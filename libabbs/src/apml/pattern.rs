@@ -238,7 +238,7 @@ fn pattern_part<'a>(
 }
 
 #[inline]
-fn pattern_list(i: &str) -> IResult<&str, PatternList> {
+fn pattern_list(i: &'_ str) -> IResult<&'_ str, PatternList<'_>> {
 	many0(terminated(|i| bash_pattern(i, "|)"), opt(char('|'))))
 		.map(PatternList)
 		.parse(i)
