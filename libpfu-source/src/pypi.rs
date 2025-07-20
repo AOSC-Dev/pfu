@@ -39,7 +39,7 @@ async fn collect_alt_hints(package: &str) -> Result<Vec<String>> {
 		project_urls: HashMap<String, String>,
 	}
 
-	debug!("Fetching PYPI project information: {}", package);
+	debug!("Fetching PYPI project information: {package}");
 	let client = http_client()?;
 	let url = format!("https://pypi.org/pypi/{package}/json");
 	let proj_json = client
@@ -52,8 +52,7 @@ async fn collect_alt_hints(package: &str) -> Result<Vec<String>> {
 	let mut hints = Vec::new();
 	for (k, v) in proj_json.info.project_urls {
 		debug!(
-			"Found alt hint from PYPI metadata of {}: {} -> {}",
-			package, k, v
+			"Found alt hint from PYPI metadata of {package}: {k} -> {v}"
 		);
 		hints.push(v);
 	}

@@ -52,11 +52,10 @@ pub async fn open(ctx: ApmlContext) -> Result<Operator> {
 				}
 			}
 			"git" => {
-				if let Some(url) = un.argument {
-					if let Some(fs) = find_alt_fs(&url).await? {
+				if let Some(url) = un.argument
+					&& let Some(fs) = find_alt_fs(&url).await? {
 						return Ok(fs);
 					}
-				}
 			}
 			"pypi" => {
 				if let Some(package) = un.argument {
@@ -88,8 +87,7 @@ async fn find_alt_fs(url: &str) -> Result<Option<Operator>> {
 		let owner = &cap["user"];
 		let repo = &cap["repo"];
 		debug!(
-			"recognized GitHub repository {}/{} from {}",
-			owner, repo, url
+			"recognized GitHub repository {owner}/{repo} from {url}"
 		);
 		Ok(Some(
 			Operator::new(Github::default().owner(owner).repo(repo))?
@@ -112,7 +110,7 @@ fn http_client() -> Result<reqwest::Client> {
 
 /// Fetches a compressed tarball and loads it into a memory FS.
 async fn fetch_tarball(url: String) -> Result<Operator> {
-	info!("Downloading tarball: {}", url);
+	info!("Downloading tarball: {url}");
 	let client = http_client()?;
 	let resp = client
 		.execute(client.get(&url).build()?)
