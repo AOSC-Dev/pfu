@@ -10,7 +10,7 @@ repository.workspace = true
 
 [dependencies]
 anyhow = "1.0.98"
-bytes = "1.10.1"
+bytes = "1.11.1"
 bzip2 = "0.6.0"
 flate2 = "1.1.2"
 futures = "0.3.31"
