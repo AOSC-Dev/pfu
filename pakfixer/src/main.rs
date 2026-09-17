@@ -127,7 +127,7 @@ async fn main() -> Result<()> {
 				Err(err) => {
 					error!(
 						"Session initialization failed for {:?}: {:#?}",
-						&package, err
+						package, err
 					);
 					continue;
 				}
@@ -137,10 +137,10 @@ async fn main() -> Result<()> {
 		for (ident, linter) in &linters {
 			match linter.apply(&sess).await {
 				Ok(_) => {
-					debug!("{} finished on {:?}", ident, &package);
+					debug!("{} finished on {:?}", ident, package);
 				}
 				Err(err) => {
-					error!("{} failed on {:?}: {:?}", ident, &package, err);
+					error!("{} failed on {:?}: {:?}", ident, package, err);
 				}
 			};
 			let messages = sess.take_messages();
@@ -161,7 +161,7 @@ async fn main() -> Result<()> {
 			}
 		}
 		if !sess.dry {
-			debug!("Saving APML files for {:?}", &package);
+			debug!("Saving APML files for {:?}", package);
 			for mut apml in walk_apml(&sess) {
 				if apml.is_dirty() {
 					apml.with_upgraded(|apml| apml.save())
@@ -171,7 +171,7 @@ async fn main() -> Result<()> {
 		} else {
 			#[cfg(debug_assertions)]
 			{
-				debug!("Checking APML files sync states for {:?}", &package);
+				debug!("Checking APML files sync states for {:?}", package);
 				for apml in walk_apml(&sess) {
 					if apml.is_dirty() {
 						bail!("APML file is desynced in dry-run session");

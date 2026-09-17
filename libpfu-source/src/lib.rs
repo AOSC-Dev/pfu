@@ -70,7 +70,7 @@ pub async fn open(ctx: ApmlContext) -> Result<Operator> {
 				warn!("unsupported source type: {}", un.tag);
 			}
 		}
-		warn!("failed to recognize source provider: {}", &src);
+		warn!("failed to recognize source provider: {}", src);
 	} else {
 		warn!("multiple sources are not supported yet");
 	}
