@@ -2,7 +2,7 @@
 
 use anyhow::Result;
 use async_trait::async_trait;
-use libabbs::apml::{ast, lst, value::array::StringArray};
+use libabbs::apml::{lst, value::array::StringArray};
 use libpfu::{
 	Linter, Session, declare_lint, declare_linter,
 	message::{LintMessage, Snippet},
@@ -15,7 +15,7 @@ declare_linter! {
 	Pep517Linter,
 	[
 		"upgrade-to-pep517",
-		"pep517-nopython2",
+		"pep517-redundant-nopython2",
 		"pep517-python2-dep",
 		"pep517-python3-dep",
 	]
@@ -29,16 +29,16 @@ declare_lint! {
 }
 
 declare_lint! {
-	pub PEP517_NOPYTHON2_LINT,
-	"pep517-nopython2",
-	Error,
-	"PEP-517 build template requires NOPYTHON2=1"
+	pub PEP517_REDUNDANT_NOPYTHON2_LINT,
+	"pep517-redundant-nopython2",
+	Warning,
+	"NOPYTHON2=1 is no longer needed"
 }
 
 declare_lint! {
 	pub PEP517_PYTHON2_DEP_LINT,
 	"pep517-python2-dep",
-	Warning,
+	Error,
 	"python-2 should not be included in dependencies of PEP-517 package"
 }
 
@@ -69,16 +69,8 @@ impl Linter for Pep517Linter {
 					if abtype == "python" {
 						apml.with_upgraded(|apml| {
 							LintMessage::new(UPGRADE_TO_PEP517_LINT)
-								.note("remove ABTYPE=python to allow automatic template detection".to_string())
 								.snippet(Snippet::new_variable(sess, apml, "ABTYPE"))
 								.emit(sess);
-							if !sess.dry {
-								apml.with_editor(|apml| {
-									apml.remove_var(
-										apml.find_var_index("ABTYPE").unwrap(),
-									)
-								})
-							}
 						})
 					} else if abtype != "pep517" {
 						debug!(
@@ -92,23 +84,19 @@ impl Linter for Pep517Linter {
 					apml.ctx()
 						.map(|ctx| ctx.read("NOPYTHON2").into_string() == "1")
 				})?;
-				if !nopy2 {
-					LintMessage::new(PEP517_NOPYTHON2_LINT)
-						.snippet(Snippet::new_index(sess, &apml, 0))
-						.emit(sess);
-					if !sess.dry {
-						apml.with_upgraded(|apml| {
+				if nopy2 {
+					apml.with_upgraded(|apml| {
+						LintMessage::new(PEP517_REDUNDANT_NOPYTHON2_LINT)
+							.snippet(Snippet::new_variable(sess, apml, "NOPYTHON2"))
+							.emit(sess);
+						if !sess.dry {
 							apml.with_editor(|apml| {
-								apml.append_var_ast(
-									"NOPYTHON2".to_string(),
-									&ast::VariableValue::String(
-										ast::Text::from("1"),
-									),
-									Some("ABTYPE"),
+								apml.remove_var(
+									apml.find_var_index("NOPYTHON2").unwrap(),
 								);
 							})
-						})
-					}
+						}
+					})
 				}
 
 				let pkgdep = apml.with_upgraded(|apml| {
