@@ -1,6 +1,6 @@
 [package]
 name = "libpfu-style"
-version = "0.1.5"
+version = "0.2.0"
 edition = "2024"
 description = "Code style lints for libPFU"
 authors.workspace = true
