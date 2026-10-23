@@ -9,10 +9,10 @@ homepage.workspace = true
 repository.workspace = true
 
 [dependencies]
-anyhow = "1.0.98"
-async-trait = "0.1.88"
+anyhow = "1.0.104"
+async-trait = "0.1.92"
 libabbs = { version = "0.2.0", path = "../libabbs" }
 libpfu = { version = "0.2.0", path = "../libpfu" }
-log = "0.4.27"
-opendal = "0.54.0"
-reqwest = { version = "0.12.22", default-features = false }
+log = "0.4.34"
+opendal = "0.59.5"
+reqwest = { version = "0.13.5", default-features = false }

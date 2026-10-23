@@ -75,7 +75,7 @@ pub async fn open(ctx: ApmlContext) -> Result<Operator> {
 	} else {
 		warn!("multiple sources are not supported yet");
 	}
-	Ok(Operator::new(Memory::default())?.finish())
+	Ok(Operator::new(Memory::default())?)
 }
 
 /// Attempts to create alternative FS from the given URL.
@@ -90,8 +90,7 @@ async fn find_alt_fs(url: &str) -> Result<Option<Operator>> {
 		debug!("recognized GitHub repository {owner}/{repo} from {url}");
 		Ok(Some(
 			Operator::new(Github::default().owner(owner).repo(repo))?
-				.layer(RetryLayer::new())
-				.finish(),
+				.layer(RetryLayer::new()),
 		))
 	} else {
 		Ok(None)
@@ -158,7 +157,7 @@ async fn load_compressed_tarball(
 
 /// Loads a uncompressed tarball into a memory FS.
 async fn load_tarball(mut reader: impl Read) -> Result<Operator> {
-	let fs = Operator::new(Memory::default())?.finish();
+	let fs = Operator::new(Memory::default())?;
 
 	let mut temp = tempfile()?;
 	std::io::copy(&mut reader, &mut temp)?;

@@ -9,16 +9,16 @@ homepage.workspace = true
 repository.workspace = true
 
 [dependencies]
-anyhow = "1.0.98"
-clap = { version = "4.5.41", features = ["derive", "env"] }
-console = "0.16.0"
+anyhow = "1.0.104"
+clap = { version = "4.6.7", features = ["derive", "env"] }
+console = "0.16.6"
 ecow = "0.3.1"
 libabbs = { version = "0.2.0", path = "../libabbs" }
 libpfu = { version = "0.2.0", path = "../libpfu" }
 libpfu-fixers = { version = "0.2.0", path = "../libpfu-fixers" }
 libpfu-logdbg = { version = "0.2.0", path = "../libpfu-logdbg" }
 libpfu-style = { version = "0.2.0", path = "../libpfu-style" }
-log = { version = "0.4.27", features = ["std", "max_level_debug", "release_max_level_info"] }
-rayon = "1.10.0"
-regex = "1.11.1"
-tokio = { version = "1.46.1", features = ["full"] }
+log = { version = "0.4.34", features = ["std", "max_level_debug", "release_max_level_info"] }
+rayon = "1.12.0"
+regex = "1.13.1"
+tokio = { version = "1.54.1", features = ["full"] }
