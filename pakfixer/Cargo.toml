@@ -14,7 +14,7 @@ clap = { version = "4.5.41", features = ["derive", "env"] }
 console = "0.16.0"
 ecow = "0.3.1"
 libabbs = { version = "0.2.0", path = "../libabbs" }
-libpfu = { version = "0.1.8", path = "../libpfu" }
+libpfu = { version = "0.2.0", path = "../libpfu" }
 libpfu-fixers = { version = "0.1.6", path = "../libpfu-fixers" }
 libpfu-logdbg = { version = "0.1.4", path = "../libpfu-logdbg" }
 libpfu-style = { version = "0.1.5", path = "../libpfu-style" }
