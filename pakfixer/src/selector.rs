@@ -2,7 +2,7 @@
 
 use std::collections::HashSet;
 
-use kstring::KString;
+use ecow::EcoString;
 use libpfu::LinterMetadata;
 use log::{debug, warn};
 
@@ -17,9 +17,9 @@ use crate::linters::{self, BASELINE_LINTERS, LINTER_PRESETS, LinterPreset};
 /// - `no-XXXLinter`: Enable a certain linter.
 pub struct LinterSelector {
 	presets: HashSet<LinterPreset>,
-	disabled_lints: HashSet<KString>,
-	disabled_linters: HashSet<KString>,
-	extra_linters: HashSet<KString>,
+	disabled_lints: HashSet<EcoString>,
+	disabled_linters: HashSet<EcoString>,
+	extra_linters: HashSet<EcoString>,
 }
 
 impl Default for LinterSelector {
@@ -39,17 +39,17 @@ impl LinterSelector {
 		#[allow(clippy::collapsible_else_if)]
 		if let Some(directive) = directive.strip_prefix("no-") {
 			if directive.ends_with("Linter") {
-				self.disabled_linters.insert(KString::from_ref(directive));
+				self.disabled_linters.insert(EcoString::from(directive));
 			} else if let Some((_, preset)) =
 				LINTER_PRESETS.iter().find(|(k, _)| *k == directive)
 			{
 				self.presets.remove(preset);
 			} else {
-				self.disabled_lints.insert(KString::from_ref(directive));
+				self.disabled_lints.insert(EcoString::from(directive));
 			}
 		} else {
 			if directive.ends_with("Linter") {
-				self.extra_linters.insert(KString::from_ref(directive));
+				self.extra_linters.insert(EcoString::from(directive));
 			} else if let Some((_, preset)) =
 				LINTER_PRESETS.iter().find(|(k, _)| *k == directive)
 			{
@@ -63,7 +63,7 @@ impl LinterSelector {
 	/// Performs the selection, returning selected linters and muted lints.
 	pub fn select(
 		self,
-	) -> (HashSet<&'static LinterMetadata>, HashSet<KString>) {
+	) -> (HashSet<&'static LinterMetadata>, HashSet<EcoString>) {
 		let mut linters = HashSet::new();
 		let check = |linter: &LinterMetadata| {
 			if self.disabled_linters.contains(linter.ident) {

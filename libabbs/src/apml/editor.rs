@@ -231,10 +231,11 @@ impl<'b> ApmlEditor<'_, 'b> {
 					&& matches!(
 						tokens.get(start - 2),
 						Some(lst::Token::Comment(_))
-					) && matches!(
-					tokens.get(start - 3),
-					Some(lst::Token::Newline)
-				) {
+					)
+					&& matches!(
+						tokens.get(start - 3),
+						Some(lst::Token::Newline)
+					) {
 					start -= 2;
 				}
 			}

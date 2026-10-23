@@ -1,6 +1,6 @@
 //! `SRCS` checks.
 
-use std::sync::LazyLock;
+use std::{str::FromStr, sync::LazyLock};
 
 use anyhow::Result;
 use async_trait::async_trait;
@@ -101,70 +101,71 @@ impl Linter for SrcsLinter {
 					|| src.starts_with("http://")
 					|| !src.contains("::")
 				{
-					Union::try_from(format!("tbl::{src}").as_str())?
+					Union::from_str(format!("tbl::{src}").as_str())?
 				} else {
-					Union::try_from(src.as_str())?
+					Union::from_str(src.as_str())?
 				};
 
 				if let Some(url) = &un.argument
-					&& let Some(domain_path) = url.strip_prefix("http://") {
-						let mut https_valid = true;
+					&& let Some(domain_path) = url.strip_prefix("http://")
+				{
+					let mut https_valid = true;
 
-						if !sess.offline {
-							let https_url = url.replace("http://", "https://");
-							debug!("Checking HTTPS URL: {https_url}");
-							let client = sess.http_client()?;
-							if let Ok(status) = client
-								.head(https_url)
-								.send()
-								.await
-								.map(|resp| resp.status())
-							{
-								https_valid = status.is_success()
-									|| status.is_redirection();
-							} else {
-								https_valid = false;
-							}
-						}
-
-						if https_valid {
-							apml.with_upgraded(|apml| {
-								LintMessage::new(INSECURE_SRC_URL_LINT)
-									.note(format!(
-										"source {idx} should use https://"
-									))
-									.snippet(Snippet::new_variable(
-										sess, apml, "SRCS",
-									))
-									.emit(sess);
-								if !sess.dry {
-									apml.with_text(|text| {
-										let domain = domain_path
-											.split_once('/')
-											.unzip()
-											.0
-											.unwrap_or(domain_path);
-										text.replace(
-											&format!("http://{domain}"),
-											&format!("https://{domain}"),
-										)
-									})?;
-								}
-								Ok::<(), anyhow::Error>(())
-							})?;
+					if !sess.offline {
+						let https_url = url.replace("http://", "https://");
+						debug!("Checking HTTPS URL: {https_url}");
+						let client = sess.http_client()?;
+						if let Ok(status) = client
+							.head(https_url)
+							.send()
+							.await
+							.map(|resp| resp.status())
+						{
+							https_valid =
+								status.is_success() || status.is_redirection();
 						} else {
-							apml.with_upgraded(|apml| {
-								LintMessage::new(HTTPS_UNSUPPORTED_SRC_LINT)
-									.note(format!(
-										"source {idx} does not support https://"
-									))
-									.snippet(Snippet::new_variable(
-										sess, apml, "SRCS",
-									))
-									.emit(sess);
-							});
+							https_valid = false;
 						}
 					}
+
+					if https_valid {
+						apml.with_upgraded(|apml| {
+							LintMessage::new(INSECURE_SRC_URL_LINT)
+								.note(format!(
+									"source {idx} should use https://"
+								))
+								.snippet(Snippet::new_variable(
+									sess, apml, "SRCS",
+								))
+								.emit(sess);
+							if !sess.dry {
+								apml.with_text(|text| {
+									let domain = domain_path
+										.split_once('/')
+										.unzip()
+										.0
+										.unwrap_or(domain_path);
+									text.replace(
+										&format!("http://{domain}"),
+										&format!("https://{domain}"),
+									)
+								})?;
+							}
+							Ok::<(), anyhow::Error>(())
+						})?;
+					} else {
+						apml.with_upgraded(|apml| {
+							LintMessage::new(HTTPS_UNSUPPORTED_SRC_LINT)
+								.note(format!(
+									"source {idx} does not support https://"
+								))
+								.snippet(Snippet::new_variable(
+									sess, apml, "SRCS",
+								))
+								.emit(sess);
+						});
+					}
+				}
 
 				match un.tag.to_ascii_lowercase().as_str() {
 					"tarball" | "tbl" => {

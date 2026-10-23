@@ -4,12 +4,12 @@ use std::{
 };
 
 use anyhow::Result;
-use kstring::KString;
+use ecow::EcoString;
 
 /// Static data of Autobuild4, from /usr/lib/autobuild4/sets.
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct Autobuild4Data {
-	pub arch_groups: HashMap<KString, HashSet<KString>>,
+	pub arch_groups: HashMap<EcoString, HashSet<EcoString>>,
 }
 
 const ARCH_GROUPS_PATH: &str = "/usr/lib/autobuild4/sets/arch_groups.json";

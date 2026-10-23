@@ -6,8 +6,8 @@
 use std::sync::{Arc, OnceLock};
 
 use anyhow::{Result, bail};
+use ecow::EcoString;
 use futures::executor::block_on;
-use kstring::KString;
 use libabbs::tree::{AbbsSourcePackage, AbbsSubPackage, AbbsTree};
 use log::debug;
 use parking_lot::{Mutex, RwLock};
@@ -147,13 +147,13 @@ impl SubpackageSession {
 /// A context for a certain recipe.
 pub struct RecipeSession {
 	/// ABBS sub-package accessor
-	pub suffix: KString,
+	pub suffix: EcoString,
 	/// Defines
 	pub defines: RwLock<ApmlFileAccess>,
 }
 
 impl RecipeSession {
-	pub fn new(abbs: &AbbsSubPackage, suffix: KString) -> Result<Self> {
+	pub fn new(abbs: &AbbsSubPackage, suffix: EcoString) -> Result<Self> {
 		let defines =
 			ApmlFileAccess::open(abbs.join(format!("defines{suffix}")))?;
 		Ok(Self {

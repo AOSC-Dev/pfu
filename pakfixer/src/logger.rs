@@ -2,7 +2,7 @@ use std::{collections::HashSet, io::Write};
 
 use anyhow::Result;
 use console::style;
-use kstring::KString;
+use ecow::EcoString;
 use libpfu::message::LintMessage;
 use log::{Level, LevelFilter, Metadata, Record};
 
@@ -69,7 +69,7 @@ pub fn init(debug: bool) -> Result<()> {
 }
 
 pub struct LintReporter {
-	pub disabled_lints: HashSet<KString>,
+	pub disabled_lints: HashSet<EcoString>,
 }
 
 impl LintReporter {

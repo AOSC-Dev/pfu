@@ -358,7 +358,8 @@ mod test {
 		assert!(!VariableValue::String("test".into()).is_empty());
 		assert_eq!(
 			VariableValue::String("test".into())
-				+ "test" + VariableValue::String("test".into()),
+				+ "test"
+				+ VariableValue::String("test".into()),
 			"testtesttest"
 		);
 		assert_eq!(

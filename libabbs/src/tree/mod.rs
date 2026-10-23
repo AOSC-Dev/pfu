@@ -7,7 +7,7 @@ use std::{
 	path::{Path, PathBuf},
 };
 
-use kstring::KString;
+use ecow::EcoString;
 use thiserror::Error;
 
 use crate::apml::{ApmlContext, ApmlError};
@@ -169,29 +169,23 @@ pub type AbbsResult<T> = Result<T, AbbsError>;
 /// The category part is required but the section part is optional.
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Hash)]
 #[repr(transparent)]
-pub struct SectionName(KString);
+pub struct SectionName(EcoString);
 
 impl SectionName {
 	/// Wraps a `aaa-bbb`-like or `aaa`-like string as a section name.
 	#[must_use]
 	pub fn from_ref(string: &str) -> Self {
-		Self(KString::from_ref(string))
+		Self(EcoString::from(string))
 	}
 
 	/// Wraps a `aaa-bbb`-like or `aaa`-like [String] as a section name.
 	#[must_use]
 	pub fn from_string(string: String) -> Self {
-		Self(KString::from_string(string))
-	}
-
-	/// Wraps a `aaa-bbb`-like or `aaa`-like static string as a section name.
-	#[must_use]
-	pub fn from_static(string: &'static str) -> Self {
-		Self(KString::from_static(string))
+		Self(EcoString::from(string))
 	}
 }
 
-impl<S: Into<KString>> From<S> for SectionName {
+impl<S: Into<EcoString>> From<S> for SectionName {
 	fn from(value: S) -> Self {
 		Self(value.into())
 	}
@@ -411,7 +405,7 @@ impl AbbsSubPackage {
 	/// Returns all modifiers suffixes.
 	///
 	/// For example, `""` for no modifier variant, `".stage2"` for stage2 variant.
-	pub fn modifier_suffixes(&self) -> AbbsResult<Vec<KString>> {
+	pub fn modifier_suffixes(&self) -> AbbsResult<Vec<EcoString>> {
 		Ok(self
 			.as_path()
 			.read_dir()?
@@ -423,7 +417,7 @@ impl AbbsSubPackage {
 			.filter_map(|entry| {
 				let name = entry.file_name();
 				let name = name.to_str().unwrap_or_default();
-				name.strip_prefix("defines").map(KString::from_ref)
+				name.strip_prefix("defines").map(EcoString::from)
 			})
 			.collect::<Vec<_>>())
 	}
@@ -494,14 +488,14 @@ mod test {
 		assert_eq!(sec.as_str(), "app");
 		assert!(!sec.deref().contains('-'));
 		assert_eq!(format!("{sec}"), "app");
-		let sec = SectionName::from_static("app");
+		let sec = SectionName::from_ref("app");
 		assert_eq!(sec.as_str(), "app");
 		assert_eq!(sec.as_ref(), "app");
 		assert_eq!(sec.category(), "app");
 		assert_eq!(sec.section(), None);
 		let sec = SectionName::from("app");
 		assert_eq!(sec.as_str(), "app");
-		let sec = SectionName::from_static("app-devel");
+		let sec = SectionName::from_ref("app-devel");
 		assert_eq!(sec.as_str(), "app-devel");
 		assert_eq!(sec.as_ref(), "app-devel");
 		assert_eq!(sec.category(), "app");
@@ -540,12 +534,12 @@ mod test {
 		assert!(
 			host.modifier_suffixes()
 				.unwrap()
-				.contains(&KString::from_static(".stage2"))
+				.contains(&EcoString::from(".stage2"))
 		);
 		assert!(
 			host.modifier_suffixes()
 				.unwrap()
-				.contains(&KString::from_static(""))
+				.contains(&EcoString::from(""))
 		);
 		assert_eq!(guest.modifier_suffixes().unwrap().len(), 1);
 	}

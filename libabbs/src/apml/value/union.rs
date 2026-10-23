@@ -1,8 +1,8 @@
 //! Unions with tags and properties.
 
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, str::FromStr, sync::Arc};
 
-use kstring::KString;
+use ecow::EcoString;
 use nom::{
 	Parser,
 	branch::alt,
@@ -18,8 +18,8 @@ use crate::apml::{lst, parser::ParseError};
 /// A union with a tag and properties.
 #[derive(Debug, Clone, Default)]
 pub struct Union {
-	pub tag: KString,
-	pub properties: HashMap<KString, String>,
+	pub tag: EcoString,
+	pub properties: HashMap<EcoString, String>,
 	pub argument: Option<String>,
 }
 
@@ -27,7 +27,7 @@ impl Union {
 	/// Creates a union without properties and argument.
 	pub fn new<S: AsRef<str>>(tag: S) -> Self {
 		Self {
-			tag: KString::from_ref(tag.as_ref()),
+			tag: EcoString::from(tag.as_ref()),
 			..Default::default()
 		}
 	}
@@ -63,10 +63,10 @@ impl Union {
 	}
 }
 
-impl TryFrom<&str> for Union {
-	type Error = ParseError;
+impl FromStr for Union {
+	type Err = ParseError;
 
-	fn try_from(value: &str) -> Result<Self, Self::Error> {
+	fn from_str(value: &str) -> Result<Self, Self::Err> {
 		let src = value.trim();
 		let (i, (_, tag, properties, argument)) = (
 			space0,
@@ -79,11 +79,13 @@ impl TryFrom<&str> for Union {
 						preceded(
 							take_while(|ch: char| {
 								ch.is_ascii_whitespace()
-									|| ch == '\n' || ch == '\r'
+									|| ch == '\n'
+									|| ch == '\r'
 							}),
 							take_while1(|ch: char| {
 								ch.is_ascii_alphanumeric()
-									|| ch == '-' || ch == '_'
+									|| ch == '-'
+									|| ch == '_'
 							}),
 						),
 						tag("="),
@@ -105,11 +107,11 @@ impl TryFrom<&str> for Union {
 		let mut props = HashMap::new();
 		if let Some(properties) = properties {
 			for (k, v) in properties {
-				props.insert(KString::from_ref(k), v.to_string());
+				props.insert(EcoString::from(k), v.to_string());
 			}
 		}
 		Ok(Self {
-			tag: KString::from_ref(tag),
+			tag: EcoString::from(tag),
 			properties: props,
 			argument: argument.map(String::from),
 		})
@@ -124,6 +126,8 @@ impl From<&Union> for lst::VariableValue<'_> {
 
 #[cfg(test)]
 mod test {
+	use std::str::FromStr;
+
 	use crate::apml::lst;
 
 	use super::Union;
@@ -150,12 +154,12 @@ mod test {
 
 	#[test]
 	fn test_union_parse() {
-		let union = Union::try_from("a::b=c;c=d::https://example.org").unwrap();
+		let union = Union::from_str("a::b=c;c=d::https://example.org").unwrap();
 		assert_eq!(union.tag, "a");
 		assert_eq!(union.properties.get("b").unwrap(), "c");
 		assert_eq!(union.properties.get("c").unwrap(), "d");
 		assert_eq!(union.argument.unwrap(), "https://example.org");
-		let union = Union::try_from(
+		let union = Union::from_str(
 			"a::     b=https://a.com/b;\n   c=d::https://example.org",
 		)
 		.unwrap();
@@ -164,33 +168,33 @@ mod test {
 		assert_eq!(union.properties.get("c").unwrap(), "d");
 		assert_eq!(union.argument.unwrap(), "https://example.org");
 		let union =
-			Union::try_from("a::b=c;copy-repo=d::https://example.org").unwrap();
+			Union::from_str("a::b=c;copy-repo=d::https://example.org").unwrap();
 		assert_eq!(union.properties.get("copy-repo").unwrap(), "d");
 		let union =
-			Union::try_from("a::b=c;copy-repo=https://example.org").unwrap();
+			Union::from_str("a::b=c;copy-repo=https://example.org").unwrap();
 		assert_eq!(
 			union.properties.get("copy-repo").unwrap(),
 			"https://example.org"
 		);
-		let union = Union::try_from("a::b=c;c=d").unwrap();
+		let union = Union::from_str("a::b=c;c=d").unwrap();
 		assert_eq!(union.tag, "a");
 		assert_eq!(union.properties.get("b").unwrap(), "c");
 		assert_eq!(union.properties.get("c").unwrap(), "d");
 		assert_eq!(union.argument, None);
-		let union = Union::try_from("a::b=c").unwrap();
+		let union = Union::from_str("a::b=c").unwrap();
 		assert_eq!(union.tag, "a");
 		assert_eq!(union.properties.get("b").unwrap(), "c");
 		assert_eq!(union.properties.get("c"), None);
 		assert_eq!(union.argument, None);
-		let union = Union::try_from("a::https://example.org").unwrap();
+		let union = Union::from_str("a::https://example.org").unwrap();
 		assert_eq!(union.tag, "a");
 		assert_eq!(union.argument.unwrap(), "https://example.org");
-		let union = Union::try_from("a::b=c::https://example.org").unwrap();
+		let union = Union::from_str("a::b=c::https://example.org").unwrap();
 		assert_eq!(
 			union.print_lst().to_string(),
 			"\"a::b=c::https://example.org\""
 		);
-		let union = Union::try_from("   a::url=https://example/example.json;pattern=\"latest-runtime\": \"(6\\..+?)\"").unwrap();
+		let union = Union::from_str("   a::url=https://example/example.json;pattern=\"latest-runtime\": \"(6\\..+?)\"").unwrap();
 		assert_eq!(union.tag, "a");
 		assert_eq!(
 			union.properties.get("url").unwrap(),

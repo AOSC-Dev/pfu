@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use anyhow::Result;
 use async_trait::async_trait;
-use kstring::KString;
+use ecow::EcoString;
 use libabbs::apml::ast;
 use libpfu::{
 	Linter, Session, declare_lint, declare_linter,
@@ -83,7 +83,7 @@ impl Linter for ArchGroupLinter {
 									_ => {
 										arch_groups.push((
 											var.name.to_string(),
-											KString::from_ref(var_name),
+											EcoString::from(var_name),
 											target.to_ascii_lowercase(),
 											false,
 										));
@@ -101,7 +101,7 @@ impl Linter for ArchGroupLinter {
 									_ => {
 										arch_groups.push((
 											var.name.to_string(),
-											KString::from_ref(var_name),
+											EcoString::from(var_name),
 											target.to_ascii_lowercase(),
 											true,
 										));
@@ -130,7 +130,7 @@ impl Linter for ArchGroupLinter {
 					);
 					arch_overrides.insert(
 						(
-							KString::from_ref(var_name),
+							EcoString::from(var_name),
 							target.to_ascii_lowercase(),
 						),
 						(var.name.to_string(), included_groups),

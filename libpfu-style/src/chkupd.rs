@@ -1,5 +1,7 @@
 //! `CHKUPDATE` checks.
 
+use std::str::FromStr;
+
 use anyhow::Result;
 use async_trait::async_trait;
 use libabbs::apml::value::union::Union;
@@ -57,7 +59,7 @@ impl Linter for ChkUpdateLinter {
 				return Ok(());
 			}
 
-			let un = Union::try_from(chkupdate)?;
+			let un = Union::from_str(chkupdate)?;
 			match un.tag.to_ascii_lowercase().as_str() {
 				"anitya" => {}
 				"github" | "gitweb" | "git" | "html" | "gitlab" => {

@@ -54,12 +54,14 @@ impl Linter for PythonDepsLinter {
 					.map(|ctx| ctx.get("ABTYPE").map(|val| val.as_string()))
 			})?;
 			if let Some(abtype) = abtype
-				&& abtype != "pep517" && abtype != "python" {
-					debug!(
-						"Explicit ABTYPE '{abtype}' is not Python, skipping PEP-517 lints"
-					);
-					continue;
-				}
+				&& abtype != "pep517"
+				&& abtype != "python"
+			{
+				debug!(
+					"Explicit ABTYPE '{abtype}' is not Python, skipping PEP-517 lints"
+				);
+				continue;
+			}
 
 			let [pkgdep, builddep] = ["PKGDEP", "BUILDDEP"].map(|var| {
 				apml.with_upgraded(|apml| {

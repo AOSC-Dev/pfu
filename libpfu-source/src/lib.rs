@@ -1,6 +1,6 @@
 //! Source-code access layers.
 
-use std::{io::Read, sync::LazyLock};
+use std::{io::Read, str::FromStr, sync::LazyLock};
 
 use anyhow::{Result, anyhow, bail};
 use bytes::Buf;
@@ -37,9 +37,9 @@ pub async fn open(ctx: ApmlContext) -> Result<Operator> {
 	if srcs.len() == 1 {
 		let src = srcs[0].clone();
 		let un = if src.starts_with("https://") || src.starts_with("http://") {
-			Union::try_from(format!("tbl::{src}").as_str())?
+			Union::from_str(format!("tbl::{src}").as_str())?
 		} else {
-			Union::try_from(src.as_str())?
+			Union::from_str(src.as_str())?
 		};
 
 		match un.tag.as_str() {
@@ -53,9 +53,10 @@ pub async fn open(ctx: ApmlContext) -> Result<Operator> {
 			}
 			"git" => {
 				if let Some(url) = un.argument
-					&& let Some(fs) = find_alt_fs(&url).await? {
-						return Ok(fs);
-					}
+					&& let Some(fs) = find_alt_fs(&url).await?
+				{
+					return Ok(fs);
+				}
 			}
 			"pypi" => {
 				if let Some(package) = un.argument {
@@ -86,9 +87,7 @@ async fn find_alt_fs(url: &str) -> Result<Option<Operator>> {
 	if let Some(cap) = REGEX_GH_URL.captures(url) {
 		let owner = &cap["user"];
 		let repo = &cap["repo"];
-		debug!(
-			"recognized GitHub repository {owner}/{repo} from {url}"
-		);
+		debug!("recognized GitHub repository {owner}/{repo} from {url}");
 		Ok(Some(
 			Operator::new(Github::default().owner(owner).repo(repo))?
 				.layer(RetryLayer::new())

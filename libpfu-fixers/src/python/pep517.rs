@@ -69,7 +69,9 @@ impl Linter for Pep517Linter {
 					if abtype == "python" {
 						apml.with_upgraded(|apml| {
 							LintMessage::new(UPGRADE_TO_PEP517_LINT)
-								.snippet(Snippet::new_variable(sess, apml, "ABTYPE"))
+								.snippet(Snippet::new_variable(
+									sess, apml, "ABTYPE",
+								))
 								.emit(sess);
 						})
 					} else if abtype != "pep517" {
@@ -87,7 +89,11 @@ impl Linter for Pep517Linter {
 				if nopy2 {
 					apml.with_upgraded(|apml| {
 						LintMessage::new(PEP517_REDUNDANT_NOPYTHON2_LINT)
-							.snippet(Snippet::new_variable(sess, apml, "NOPYTHON2"))
+							.snippet(Snippet::new_variable(
+								sess,
+								apml,
+								"NOPYTHON2",
+							))
 							.emit(sess);
 						if !sess.dry {
 							apml.with_editor(|apml| {

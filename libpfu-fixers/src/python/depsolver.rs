@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use anyhow::Result;
-use kstring::KString;
+use ecow::EcoString;
 use libabbs::apml::value::array::StringArray;
 use libpfu::Session;
 use log::{debug, error};
@@ -9,7 +9,7 @@ use serde::Deserialize;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Dependency {
-	pub name: KString,
+	pub name: EcoString,
 	pub build_dep: bool,
 	pub origin: DependencyOrigin,
 	pub raw_req: String,
@@ -17,7 +17,7 @@ pub struct Dependency {
 
 impl Dependency {
 	/// Extracts the package name out from a Python dependency requirement.
-	pub fn extract_name_from_req(req: &str) -> Option<KString> {
+	pub fn extract_name_from_req(req: &str) -> Option<EcoString> {
 		// exclude windows and OSX-only dependencies
 		if let Some((_, cond)) = req.split_once(';') {
 			let cond = cond.to_ascii_lowercase();
@@ -32,12 +32,12 @@ impl Dependency {
 		let req = req
 			.split_once([' ', '>', '<', '~', '=', ';', '['])
 			.map_or(req, |(req, _)| req);
-		Some(KString::from_ref(req))
+		Some(EcoString::from(req))
 	}
 
 	/// Normalizes the package name for AOSC naming style.
 	pub fn guess_aosc_package_name(&self) -> String {
-		self.name.replace('_', "-")
+		self.name.as_str().replace('_', "-")
 	}
 }
 
@@ -112,7 +112,7 @@ fn collect_from_pyproject(pyproject_str: &str) -> Result<Vec<Dependency>> {
 	}
 	if let Some(backend) = pyproject.build_system.build_backend {
 		py_deps.push(Dependency {
-			name: KString::from_ref(
+			name: EcoString::from(
 				backend.split_once('.').map_or(backend.as_str(), |(s, _)| s),
 			),
 			build_dep: true,
@@ -203,7 +203,7 @@ pub async fn find_system_package(
 		"/var/lib/apt/lists",
 		oma_contents::searcher::Mode::Provides,
 		&if dep.name.contains('-') {
-			format!("/site-packages/{}/", dep.name.replace('-', "_"))
+			format!("/site-packages/{}/", dep.name.as_str().replace('-', "_"))
 		} else {
 			format!("/site-packages/{}/", dep.name)
 		},

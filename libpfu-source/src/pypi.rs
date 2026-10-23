@@ -51,9 +51,7 @@ async fn collect_alt_hints(package: &str) -> Result<Vec<String>> {
 
 	let mut hints = Vec::new();
 	for (k, v) in proj_json.info.project_urls {
-		debug!(
-			"Found alt hint from PYPI metadata of {package}: {k} -> {v}"
-		);
+		debug!("Found alt hint from PYPI metadata of {package}: {k} -> {v}");
 		hints.push(v);
 	}
 
